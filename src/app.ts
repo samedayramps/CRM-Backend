@@ -15,21 +15,18 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 
-// CORS configuration
-const corsOptions = {
-  origin: [
-    'https://samedayramps.com',
-    'https://form.samedayramps.com',
-    'http://localhost:3001',
-    process.env.FRONTEND_URL // Add this line
-  ],
+// Updated CORS configuration
+app.use(cors({
+  origin: 'https://form.samedayramps.com',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
-};
+}));
 
-app.use(cors(corsOptions));
 app.use(express.json());
+
+// Handle OPTIONS requests
+app.options('*', cors());
 
 // Routes
 app.use('/api/rental-requests', rentalRequestsRouter);
