@@ -38,12 +38,12 @@ router.post('/', rentalRequestRules, async (req: Request, res: Response, next: N
     await rentalRequest.save();
 
     // Send email notification
-    sendRentalRequestNotification(rentalRequest).catch((error) => {
+    sendRentalRequestNotification(rentalRequest).catch((error: any) => {
       console.error('Failed to send email notification:', error);
     });
 
     // Send push notification
-    sendPushNotification(`New rental request from ${customerInfo.firstName} ${customerInfo.lastName}`).catch((error) => {
+    sendPushNotification(`New rental request from ${customerInfo.firstName} ${customerInfo.lastName}`).catch((error: any) => {
       console.error('Failed to send push notification:', error);
     });
 
