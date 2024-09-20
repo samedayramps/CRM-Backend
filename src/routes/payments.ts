@@ -19,7 +19,7 @@ router.post('/create-link', async (req: Request, res: Response, next: NextFuncti
 
     // Create a Stripe PaymentIntent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(quote.pricingCalculations.totalAmount * 100), // Stripe uses cents
+      amount: Math.round(quote.pricingCalculations.totalUpfront * 100), // Use totalUpfront instead of totalAmount
       currency: 'usd',
       metadata: { quoteId: quote.id },
     });
