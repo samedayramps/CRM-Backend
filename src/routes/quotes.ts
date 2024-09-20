@@ -1,11 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { Quote } from '../models/Quote';
-import { Customer } from '../models/Customer';
-import { RentalRequest } from '../models/RentalRequest';
 import { validationResult } from 'express-validator';
 import { quoteRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
-import { calculatePricing } from '../services/pricingService';
 
 const router = express.Router();
 
@@ -41,40 +38,18 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', quoteRules, async (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return next(new CustomError('Validation failed', 400));
+    return res.status(400).json({ errors: errors.array() });
   }
 
   try {
-    const { customerId, rentalRequestId, rampConfiguration } = req.body;
-
-    const customer = await Customer.findById(customerId);
-    if (!customer) {
-      throw new CustomError('Customer not found', 404);
-    }
-
-    if (rentalRequestId) {
-      const rentalRequest = await RentalRequest.findById(rentalRequestId);
-      if (!rentalRequest) {
-        throw new CustomError('Rental request not found', 404);
-      }
-    }
-
-    const pricingCalculations = await calculatePricing(rampConfiguration, customer.installAddress);
-
-    const quoteData = {
-      customerId,
-      customerName: `${customer.firstName} ${customer.lastName}`,
-      rentalRequestId,
-      rampConfiguration,
-      pricingCalculations,
-    };
-
+    const quoteData = req.body;
+    // Ensure totalUpfront is set correctly in pricingCalculations
+    quoteData.pricingCalculations.totalUpfront = quoteData.pricingCalculations.deliveryFee + quoteData.pricingCalculations.installFee;
     const quote = new Quote(quoteData);
     await quote.save();
-
     res.status(201).json(quote);
   } catch (error: any) {
-    next(new CustomError(error.message, error.statusCode || 500));
+    next(new CustomError(error.message, 500));
   }
 });
 
@@ -87,6 +62,8 @@ router.put('/:id', quoteRules, async (req: Request, res: Response, next: NextFun
 
   try {
     const { rampConfiguration, pricingCalculations } = req.body;
+    // Ensure totalUpfront is set correctly in pricingCalculations
+    pricingCalculations.totalUpfront = pricingCalculations.deliveryFee + pricingCalculations.installFee;
     
     const quote = await Quote.findByIdAndUpdate(
       req.params.id,

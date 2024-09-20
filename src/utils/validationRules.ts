@@ -11,10 +11,20 @@ export const pricingVariablesRules = [
 
 export const quoteRules = [
   body('customerId').isMongoId(),
-  body('rentalRequestId').optional().isMongoId(),
+  body('customerName').isString().notEmpty(),
+  body('rampConfiguration').isObject(),
   body('rampConfiguration.components').isArray().notEmpty(),
+  body('rampConfiguration.components.*.type').isIn(['ramp', 'landing']),
+  body('rampConfiguration.components.*.length').isFloat({ min: 0 }),
+  body('rampConfiguration.components.*.width').optional().isFloat({ min: 0 }),
   body('rampConfiguration.totalLength').isFloat({ min: 0 }),
-  body('rampConfiguration.rentalDuration').isInt({ min: 1 }),
+  body('pricingCalculations').isObject(),
+  body('pricingCalculations.deliveryFee').isFloat({ min: 0 }),
+  body('pricingCalculations.installFee').isFloat({ min: 0 }),
+  body('pricingCalculations.monthlyRentalRate').isFloat({ min: 0 }),
+  body('pricingCalculations.totalUpfront').isFloat({ min: 0 }), // Changed from totalAmount
+  body('pricingCalculations.distance').isFloat({ min: 0 }),
+  body('status').isIn(['pending', 'approved', 'rejected']),
 ];
 
 export const customerRules = [
