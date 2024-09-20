@@ -43,7 +43,18 @@ router.post('/', rentalRequestRules, async (req: Request, res: Response, next: N
     });
 
     // Send push notification
-    sendPushNotification(`New rental request from ${customerInfo.firstName} ${customerInfo.lastName}`).catch((error: any) => {
+    const pushMessage = `
+      New rental request from ${customerInfo.firstName} ${customerInfo.lastName}
+      Email: ${customerInfo.email}
+      Phone: ${customerInfo.phone}
+      Install Address: ${installAddress}
+      Ramp Length: ${rampDetails.knowRampLength ? rampDetails.rampLength + ' feet' : 'Unknown'}
+      Rental Duration: ${rampDetails.knowRentalDuration ? rampDetails.rentalDuration + ' months' : 'Unknown'}
+      Install Timeframe: ${rampDetails.installTimeframe}
+      Mobility Aids: ${rampDetails.mobilityAids.join(', ')}
+    `;
+
+    sendPushNotification('New Rental Request', pushMessage.trim()).catch((error: any) => {
       console.error('Failed to send push notification:', error);
     });
 
