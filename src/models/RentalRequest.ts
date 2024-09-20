@@ -1,5 +1,5 @@
 // src/models/RentalRequest.ts
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 
 export interface IRentalRequest extends Document {
   customerInfo: {
