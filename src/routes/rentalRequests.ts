@@ -1,10 +1,10 @@
 // src/routes/rentalRequests.ts
 import express, { Request, Response, NextFunction } from 'express';
 import { RentalRequest, IRentalRequest } from '../models/RentalRequest';
-import { sendEmail } from '../utils/email';
 import { validationResult } from 'express-validator';
 import { rentalRequestRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
+import { sendRentalRequestNotification } from '../utils/emailNotification';
 
 const router = express.Router();
 
@@ -35,6 +35,11 @@ router.post('/', rentalRequestRules, async (req: Request, res: Response, next: N
     });
 
     await rentalRequest.save();
+
+    // Send email notification
+    sendRentalRequestNotification(rentalRequest).catch((error) => {
+      console.error('Failed to send email notification:', error);
+    });
 
     res.status(201).json(rentalRequest);
   } catch (error: any) {
@@ -71,24 +76,5 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     next(new CustomError(error.message, error.statusCode || 500));
   }
 });
-
-// ... (keep other routes and helper functions)
-
-function prepareEmailBody(rentalRequest: IRentalRequest): string {
-  return `
-    <h2>New Rental Request Received</h2>
-    <p>Customer: ${rentalRequest.customerInfo.firstName} ${rentalRequest.customerInfo.lastName}</p>
-    <p>Email: ${rentalRequest.customerInfo.email}</p>
-    <p>Phone: ${rentalRequest.customerInfo.phone}</p>
-    <p>Install Address: ${rentalRequest.installAddress}</p>
-    <h3>Ramp Details:</h3>
-    <ul>
-      <li>Ramp Length: ${rentalRequest.rampDetails.knowRampLength ? rentalRequest.rampDetails.rampLength + ' feet' : 'Unknown'}</li>
-      <li>Rental Duration: ${rentalRequest.rampDetails.knowRentalDuration ? rentalRequest.rampDetails.rentalDuration + ' months' : 'Unknown'}</li>
-      <li>Install Timeframe: ${rentalRequest.rampDetails.installTimeframe}</li>
-      <li>Mobility Aids: ${rentalRequest.rampDetails.mobilityAids.join(', ')}</li>
-    </ul>
-  `;
-}
 
 export default router;
