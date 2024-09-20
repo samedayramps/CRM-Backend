@@ -1,6 +1,6 @@
 // src/__tests__/calculatePricing.test.ts
 import request from 'supertest';
-import app from '../index';
+import app from '../app';
 import { PricingVariables } from '../models/PricingVariables';
 
 describe('Calculate Pricing API', () => {

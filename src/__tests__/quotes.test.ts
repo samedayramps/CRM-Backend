@@ -3,7 +3,7 @@ import request from 'supertest';
 import app from '../index';
 import { Quote } from '../models/Quote';
 import { Customer, ICustomer } from '../models/Customer';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
 describe('Quotes API', () => {
   test('should create a new quote', async () => {
@@ -16,7 +16,10 @@ describe('Quotes API', () => {
       mobilityAids: ['Wheelchair'],
     };
 
-    const customer: HydratedDocument<ICustomer> = await Customer.create(customerData);
+    const customer = {
+      _id: new Types.ObjectId(),
+      // ... other customer properties
+    };
 
     const quoteData = {
       customerId: customer._id,
