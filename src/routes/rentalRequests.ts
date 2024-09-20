@@ -18,8 +18,6 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// ... (keep existing POST and PUT routes)
-
 router.post('/', rentalRequestRules, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const errors = validationResult(req);
@@ -56,6 +54,19 @@ router.put('/:id', rentalRequestRules, async (req: Request, res: Response, next:
       return next(new CustomError('Rental request not found', 404));
     }
     res.json(updatedRequest);
+  } catch (error: any) {
+    next(new CustomError(error.message, error.statusCode || 500));
+  }
+});
+
+// Delete a rental request
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const deletedRequest = await RentalRequest.findByIdAndDelete(req.params.id);
+    if (!deletedRequest) {
+      return next(new CustomError('Rental request not found', 404));
+    }
+    res.status(204).send();
   } catch (error: any) {
     next(new CustomError(error.message, error.statusCode || 500));
   }
