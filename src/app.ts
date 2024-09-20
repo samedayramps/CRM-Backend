@@ -13,7 +13,11 @@ import path from 'path';
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+console.log('Starting application...');
+
 const app = express();
+
+console.log('Express app created');
 
 // Updated CORS configuration
 app.use(cors({
@@ -22,6 +26,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
 }));
+
+console.log('CORS middleware added');
 
 app.use(express.json());
 
@@ -38,5 +44,7 @@ app.use('/api/payments', paymentsRouter);
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
+
+console.log('Application setup complete');
 
 export default app;
