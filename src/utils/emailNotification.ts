@@ -3,7 +3,7 @@ import { sendEmail } from './email';
 
 export const sendRentalRequestNotification = async (rentalRequest: IRentalRequest) => {
   const emailBody = prepareEmailBody(rentalRequest);
-  await sendEmail('admin@example.com', 'New Rental Request Received', emailBody);
+  await sendEmail('ty@samedayramps.com', 'New Rental Request Received', emailBody);
 };
 
 const prepareEmailBody = (rentalRequest: IRentalRequest): string => {
