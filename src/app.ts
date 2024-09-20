@@ -20,8 +20,20 @@ const app = express();
 console.log('Express app created');
 
 // Updated CORS configuration
+const allowedOrigins = [
+  'https://form.samedayramps.com',
+  'http://localhost:3001',
+  'https://app.samedayramps.com'
+];
+
 app.use(cors({
-  origin: 'https://form.samedayramps.com',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
