@@ -5,6 +5,7 @@ import { validationResult } from 'express-validator';
 import { rentalRequestRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
 import { sendRentalRequestNotification } from '../utils/emailNotification';
+import { sendPushNotification } from '../utils/pushNotification';
 
 const router = express.Router();
 
@@ -39,6 +40,11 @@ router.post('/', rentalRequestRules, async (req: Request, res: Response, next: N
     // Send email notification
     sendRentalRequestNotification(rentalRequest).catch((error) => {
       console.error('Failed to send email notification:', error);
+    });
+
+    // Send push notification
+    sendPushNotification(`New rental request from ${customerInfo.firstName} ${customerInfo.lastName}`).catch((error) => {
+      console.error('Failed to send push notification:', error);
     });
 
     res.status(201).json(rentalRequest);
