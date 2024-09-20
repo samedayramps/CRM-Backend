@@ -1,10 +1,12 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "dev": "ts-node-dev --respawn src/index.ts",
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn src/server.ts",
+    "postinstall": "npm run build",
     "test": "NODE_ENV=test jest",
     "seed:pricing-variables": "ts-node src/scripts/seedPricingVariables.ts"
   },
