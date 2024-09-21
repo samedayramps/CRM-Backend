@@ -12,23 +12,24 @@ interface RampConfiguration {
 
 interface QuoteRequest {
   rampConfiguration: RampConfiguration;
-  customerAddress: string;
+  installAddress: string;  // Changed from customerAddress
   warehouseAddress: string;
 }
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { rampConfiguration, customerAddress, warehouseAddress } = req.body as QuoteRequest;
+    const { rampConfiguration, installAddress, warehouseAddress } = req.body as QuoteRequest;
 
-    if (!customerAddress || !warehouseAddress) {
-      throw new CustomError('Customer address and warehouse address are required', 400);
+    if (!installAddress || !warehouseAddress) {
+      throw new CustomError('Install address and warehouse address are required', 400);
     }
 
-    const pricingCalculations = await calculatePricing(rampConfiguration, customerAddress, warehouseAddress);
+    const pricingCalculations = await calculatePricing(rampConfiguration, installAddress, warehouseAddress);
 
     res.json(pricingCalculations);
   } catch (error: any) {
-    next(new CustomError(error.message, 500));
+    console.error('Error in calculatePricing route:', error);  // Add this line for debugging
+    next(new CustomError(error.message, error.statusCode || 500));
   }
 });
 

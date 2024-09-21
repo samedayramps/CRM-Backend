@@ -8,6 +8,8 @@ interface RampConfiguration {
 }
 
 export async function calculatePricing(rampConfiguration: RampConfiguration, installAddress: string, warehouseAddress: string) {
+  console.log('Received in calculatePricing:', { rampConfiguration, installAddress, warehouseAddress });  // Add this line
+
   if (!installAddress || !warehouseAddress) {
     throw new CustomError('Install address and warehouse address are required', 400);
   }
