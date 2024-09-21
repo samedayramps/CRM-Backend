@@ -29,6 +29,8 @@ export interface IQuote extends Document {
   pricingCalculations: PricingCalculations;
   status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
   createdAt: Date;
+  manualSignature?: string; // Add this line
+  signatureDate?: Date; // Add this line
 }
 
 const quoteSchema = new Schema<IQuote>({
@@ -57,6 +59,8 @@ const quoteSchema = new Schema<IQuote>({
     default: 'draft' 
   },
   createdAt: { type: Date, default: Date.now },
+  manualSignature: { type: String, required: false }, // Add this line
+  signatureDate: { type: Date, required: false } // Add this line
 });
 
 // Enable virtuals in JSON output if needed

@@ -189,19 +189,28 @@ router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction
       customerName = `${customer.firstName} ${customer.lastName}`;
     }
 
-    const signatureLink = await esignatureService.sendEsignatureRequest({
-      templateId: 'your-template-id', // You'll need to set this up
-      signers: [{ name: customerName, email: customerEmail }],
-      // Add any other necessary fields
-    });
+    let signatureLink: string;
+    try {
+      const signatureResponse = await esignatureService.sendEsignatureRequest({
+        templateId: process.env.ESIGNATURE_TEMPLATE_ID!, // Make sure this is set in your .env file
+        signers: [{ name: customerName, email: customerEmail }],
+        metadata: `Quote ID: ${quote._id}`,
+      });
+      signatureLink = signatureResponse.signing_link;
+    } catch (error: any) {
+      console.error('Failed to send e-signature request:', error);
+      // If e-signature fails, we'll still continue with the process
+      signatureLink = `${process.env.FRONTEND_URL}/manual-signature?quoteId=${quote._id}`;
+    }
 
     // Send follow-up email with payment and signature links
     await sendFollowUpEmail(quote, paymentLink, signatureLink);
 
     // Redirect to a success page or send a success response
-    res.redirect(`${process.env.FRONTEND_URL}/quote-accepted?id=${id}`);
+    res.redirect(`${process.env.FRONTEND_URL}/quote-accepted?id=${quote._id}&paymentLink=${encodeURIComponent(paymentLink)}&signatureLink=${encodeURIComponent(signatureLink)}`);
   } catch (error: any) {
-    next(new CustomError(error.message, 500));
+    console.error('Error accepting quote:', error);
+    next(new CustomError(error.message, error.statusCode || 500));
   }
 });
 
