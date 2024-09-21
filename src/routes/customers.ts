@@ -16,7 +16,6 @@ const validateCustomer = [
   body('email').isEmail().normalizeEmail(),
   body('installAddress').trim().notEmpty(),
   body('mobilityAids').isArray(),
-  body('preferredContactMethod').optional().isIn(['email', 'phone', 'text']),
   body('notes').optional().trim().escape(),
 ];
 

@@ -34,7 +34,7 @@ export const customerRules = [
   body('email').isEmail(),
   body('installAddress').trim().notEmpty(),
   body('mobilityAids').isArray(),
-  body('preferredContactMethod').optional().isIn(['email', 'phone', 'text']),
+  // Removed: body('preferredContactMethod').optional().isIn(['email', 'phone', 'text']),
   body('notes').optional().trim(),
 ];
 

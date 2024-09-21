@@ -6,6 +6,7 @@ import { rentalRequestRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
 import { sendRentalRequestNotification } from '../utils/emailNotification';
 import { sendPushNotification } from '../utils/pushNotification';
+import { Types } from 'mongoose';
 
 const router = express.Router();
 
@@ -14,6 +15,27 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const rentalRequests = await RentalRequest.find().sort({ createdAt: -1 });
     res.json(rentalRequests);
+  } catch (error: any) {
+    next(new CustomError(error.message, 500));
+  }
+});
+
+// Get a single rental request by ID
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid rental request ID', 400));
+    }
+
+    const rentalRequest = await RentalRequest.findById(id);
+
+    if (!rentalRequest) {
+      return next(new CustomError('Rental request not found', 404));
+    }
+
+    res.json(rentalRequest);
   } catch (error: any) {
     next(new CustomError(error.message, 500));
   }

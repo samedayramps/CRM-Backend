@@ -10,7 +10,7 @@ export interface ICustomer extends Document {
   mobilityAids: string[];
   rentalRequestId?: Types.ObjectId;
   notes?: string; // New field for additional customer information
-  preferredContactMethod?: string; // New field for communication preference
+  // Removed: preferredContactMethod?: string; // New field for communication preference
   createdAt: Date;
   updatedAt: Date; // New field to track last update
 }
@@ -24,7 +24,7 @@ const customerSchema = new Schema<ICustomer>({
   mobilityAids: { type: [String], required: true },
   rentalRequestId: { type: Schema.Types.ObjectId, ref: 'RentalRequest', required: false },
   notes: { type: String, required: false },
-  preferredContactMethod: { type: String, enum: ['email', 'phone', 'text'], required: false },
+  // Removed: preferredContactMethod: { type: String, enum: ['email', 'phone', 'text'], required: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
