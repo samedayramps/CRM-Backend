@@ -26,32 +26,28 @@ router.post('/', express.json(), async (req, res, next) => {
 
     switch (status) {
       case 'contract-sent':
-        updateResult = await Quote.findOneAndUpdate(
-          { agreementId: data.contract.id },
-          { agreementStatus: 'sent' },
-          { new: true }
-        );
-        break;
       case 'contract-viewed':
-        updateResult = await Quote.findOneAndUpdate(
-          { agreementId: data.contract.id },
-          { agreementStatus: 'viewed' },
-          { new: true }
-        );
-        break;
       case 'contract-signed':
-        updateResult = await Quote.findOneAndUpdate(
-          { agreementId: data.contract.id },
-          { agreementStatus: 'signed' },
-          { new: true }
-        );
-        break;
       case 'contract-declined':
         updateResult = await Quote.findOneAndUpdate(
           { agreementId: data.contract.id },
-          { agreementStatus: 'declined' },
+          { agreementStatus: status.replace('contract-', '') },
           { new: true }
         );
+
+        if (!updateResult && data.contract.metadata) {
+          const metadata = JSON.parse(data.contract.metadata);
+          if (metadata.quoteId) {
+            updateResult = await Quote.findByIdAndUpdate(
+              metadata.quoteId,
+              { 
+                agreementId: data.contract.id,
+                agreementStatus: status.replace('contract-', '')
+              },
+              { new: true }
+            );
+          }
+        }
         break;
       default:
         console.log(`Unhandled event type: ${status}`);

@@ -194,6 +194,7 @@ router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction
     }
 
     let signatureLink: string;
+    let agreementId: string;
     try {
       console.log('Sending e-signature request for quote:', typedQuote._id);
       const signatureResponse = await esignatureService.sendEsignatureRequest({
@@ -212,8 +213,15 @@ router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction
       });
       console.log('E-signature response:', JSON.stringify(signatureResponse, null, 2));
       
-      if (signatureResponse.data && signatureResponse.data.contract && signatureResponse.data.contract.signers && signatureResponse.data.contract.signers[0]) {
+      if (signatureResponse.data && signatureResponse.data.contract && signatureResponse.data.contract.id) {
+        agreementId = signatureResponse.data.contract.id;
         signatureLink = signatureResponse.data.contract.signers[0].sign_page_url;
+        
+        // Update the quote with the agreementId
+        await Quote.findByIdAndUpdate(typedQuote._id, {
+          agreementId: agreementId,
+          agreementStatus: 'sent'
+        });
       } else {
         throw new Error('Invalid response structure from eSignatures.io');
       }
