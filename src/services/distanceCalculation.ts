@@ -8,6 +8,8 @@ interface DistanceResult {
 
 export async function calculateDistance(origin: string, destination: string): Promise<DistanceResult> {
   try {
+    console.log('Calculating distance:', { origin, destination }); // Add this line for debugging
+
     if (!origin || !destination) {
       throw new CustomError('Origin and destination are required', 400);
     }
@@ -52,6 +54,7 @@ export async function calculateDistance(origin: string, destination: string): Pr
       duration: element.duration.value,
     };
   } catch (error: any) {
+    console.error('Error in calculateDistance:', error); // Add this line for debugging
     if (error instanceof CustomError) {
       throw error;
     }

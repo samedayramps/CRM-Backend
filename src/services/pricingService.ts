@@ -8,30 +8,39 @@ interface RampConfiguration {
 }
 
 export async function calculatePricing(rampConfiguration: RampConfiguration, customerAddress: string, warehouseAddress: string) {
+  if (!customerAddress || !warehouseAddress) {
+    throw new CustomError('Customer address and warehouse address are required', 400);
+  }
+
   const variables = await PricingVariables.findOne().sort({ updatedAt: -1 });
 
   if (!variables) {
     throw new CustomError('Pricing variables not set', 500);
   }
 
-  const { distance } = await calculateDistance(warehouseAddress, customerAddress);
+  try {
+    const { distance } = await calculateDistance(warehouseAddress, customerAddress);
 
-  const deliveryFee = variables.baseDeliveryFee + 
-    variables.deliveryFeePerMile * distance;
+    const deliveryFee = variables.baseDeliveryFee + 
+      variables.deliveryFeePerMile * distance;
 
-  const installFee = variables.baseInstallFee + 
-    variables.installFeePerComponent * rampConfiguration.components.length;
+    const installFee = variables.baseInstallFee + 
+      variables.installFeePerComponent * rampConfiguration.components.length;
 
-  const monthlyRentalRate = variables.rentalRatePerFt * rampConfiguration.totalLength;
+    const monthlyRentalRate = variables.rentalRatePerFt * rampConfiguration.totalLength;
 
-  const totalUpfront = deliveryFee + installFee;
+    const totalUpfront = deliveryFee + installFee;
 
-  return {
-    deliveryFee,
-    installFee,
-    monthlyRentalRate,
-    totalUpfront,
-    distance,
-    warehouseAddress,
-  };
+    return {
+      deliveryFee,
+      installFee,
+      monthlyRentalRate,
+      totalUpfront,
+      distance,
+      warehouseAddress,
+    };
+  } catch (error) {
+    console.error('Error in calculatePricing:', error);
+    throw error;
+  }
 }

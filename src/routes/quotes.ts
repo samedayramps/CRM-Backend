@@ -46,6 +46,12 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { rampConfiguration, installAddress, warehouseAddress } = req.body;
+    console.log('Quote request body:', req.body); // Add this line for debugging
+
+    if (!installAddress || !warehouseAddress) {
+      throw new CustomError('Install address and warehouse address are required', 400);
+    }
+
     const pricingCalculations = await calculatePricing(rampConfiguration, installAddress, warehouseAddress);
 
     const quoteData = {
@@ -57,7 +63,8 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     await quote.save();
     res.status(201).json(quote);
   } catch (error: any) {
-    next(new CustomError(error.message, 500));
+    console.error('Error creating quote:', error); // Add this line for debugging
+    next(new CustomError(error.message, error.statusCode || 500));
   }
 });
 
