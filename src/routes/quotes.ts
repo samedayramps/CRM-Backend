@@ -45,8 +45,8 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // Create a new quote
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { installAddress, warehouseAddress } = req.body; // Changed from companyAddress
-    const pricingCalculations = await calculatePricing(installAddress, warehouseAddress); // Changed from companyAddress
+    const { rampConfiguration, installAddress, warehouseAddress } = req.body;
+    const pricingCalculations = await calculatePricing(rampConfiguration, installAddress, warehouseAddress);
 
     const quoteData = {
       ...req.body,
