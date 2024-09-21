@@ -20,13 +20,17 @@ interface QuoteRequest {
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { rampConfiguration, customerAddress, warehouseAddress } = req.body as QuoteRequest; // Changed from companyAddress
+    const { rampConfiguration, customerAddress, warehouseAddress } = req.body as QuoteRequest;
 
-    if (!customerAddress || !warehouseAddress) { // Changed from companyAddress
-      throw new CustomError('Customer address and warehouse address are required', 400); // Changed error message
+    if (!customerAddress || !warehouseAddress) {
+      throw new CustomError('Customer address and warehouse address are required', 400);
     }
 
-    const pricingCalculations = await calculatePricing(rampConfiguration, customerAddress);
+    // Pass the correct parameters to calculatePricing
+    const pricingCalculations = await calculatePricing(customerAddress, warehouseAddress);
+
+    // If you need to use rampConfiguration, you might need to update the calculatePricing function
+    // to accept this parameter as well
 
     res.json(pricingCalculations);
   } catch (error: any) {
