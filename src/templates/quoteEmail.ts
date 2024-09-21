@@ -1,6 +1,7 @@
 import { IQuote } from '../models/Quote';
 import { ICustomer } from '../models/Customer';
 import { Types } from 'mongoose';
+import { generateAcceptanceToken } from '../utils/tokenUtils';
 
 export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): string {
   let customerName = 'Valued Customer';
@@ -16,6 +17,9 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
     }
   }
   
+  const acceptanceToken = quote._id ? generateAcceptanceToken(quote._id.toString()) : '';
+  const acceptanceUrl = `${acceptUrl}?token=${acceptanceToken}`;
+
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -79,7 +83,7 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
         <p>To accept this quote and proceed with your order, please click the button below:</p>
         
         <p>
-          <a href="${acceptUrl}" class="accept-button">Accept Quote</a>
+          <a href="${acceptanceUrl}" class="accept-button">Accept Quote</a>
         </p>
 
         <p>If you have any questions or need further information, please don't hesitate to contact us. We're here to help!</p>

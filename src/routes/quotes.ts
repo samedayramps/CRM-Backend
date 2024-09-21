@@ -1,11 +1,15 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { Quote } from '../models/Quote';
+import { Customer, ICustomer } from '../models/Customer'; // Add this line
 import { calculatePricing } from '../services/pricingService';
 import { validationResult } from 'express-validator';
 import { quoteRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
 import { Types } from 'mongoose';
-import { sendQuoteEmail } from '../services/emailService';
+import { sendQuoteEmail, sendFollowUpEmail } from '../services/emailService';
+import { verifyAcceptanceToken } from '../utils/tokenUtils';
+import { generateStripePaymentLink } from '../services/stripeService';
+import { EsignatureService } from '../services/EsignatureService';
 
 const router = express.Router();
 
@@ -136,15 +140,26 @@ router.post('/:id/send-email', async (req: Request, res: Response, next: NextFun
 });
 
 // Accept quote
-router.post('/:id/accept', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const { token } = req.query;
 
     if (!Types.ObjectId.isValid(id)) {
       return next(new CustomError('Invalid quote ID', 400));
     }
 
-    const quote = await Quote.findById(id);
+    if (!token || typeof token !== 'string') {
+      return next(new CustomError('Invalid or missing acceptance token', 400));
+    }
+
+    // Verify the acceptance token
+    const isValidToken = verifyAcceptanceToken(id, token);
+    if (!isValidToken) {
+      return next(new CustomError('Invalid or expired acceptance token', 401));
+    }
+
+    const quote = await Quote.findById(id).populate('customerId');
     if (!quote) {
       return next(new CustomError('Quote not found', 404));
     }
@@ -153,9 +168,38 @@ router.post('/:id/accept', async (req: Request, res: Response, next: NextFunctio
     quote.status = 'accepted';
     await quote.save();
 
-    // You might want to trigger other actions here, like creating an order or sending a confirmation email
+    // Generate Stripe payment link
+    const paymentLink = await generateStripePaymentLink(quote);
 
-    res.json({ message: 'Quote accepted successfully', quote });
+    // Generate eSignatures.io agreement
+    const esignatureService = new EsignatureService();
+    let customerEmail: string;
+    let customerName: string;
+
+    if (quote.customerId instanceof Types.ObjectId) {
+      const customer = await Customer.findById(quote.customerId);
+      if (!customer) {
+        throw new CustomError('Customer not found', 404);
+      }
+      customerEmail = customer.email;
+      customerName = `${customer.firstName} ${customer.lastName}`;
+    } else {
+      const customer = quote.customerId as ICustomer;
+      customerEmail = customer.email;
+      customerName = `${customer.firstName} ${customer.lastName}`;
+    }
+
+    const signatureLink = await esignatureService.sendEsignatureRequest({
+      templateId: 'your-template-id', // You'll need to set this up
+      signers: [{ name: customerName, email: customerEmail }],
+      // Add any other necessary fields
+    });
+
+    // Send follow-up email with payment and signature links
+    await sendFollowUpEmail(quote, paymentLink, signatureLink);
+
+    // Redirect to a success page or send a success response
+    res.redirect(`${process.env.FRONTEND_URL}/quote-accepted?id=${id}`);
   } catch (error: any) {
     next(new CustomError(error.message, 500));
   }

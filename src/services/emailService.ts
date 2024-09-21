@@ -58,3 +58,48 @@ export async function sendQuoteEmail(quote: IQuote): Promise<void> {
     throw new CustomError('Failed to send quote email', 500);
   }
 }
+
+export async function sendFollowUpEmail(quote: IQuote, paymentLink: string, signatureLink: string): Promise<void> {
+  if (!quote.customerId) {
+    throw new CustomError('Invalid customer data in quote', 400);
+  }
+
+  let customerEmail: string;
+  let customerName: string;
+
+  if (quote.customerId instanceof Types.ObjectId) {
+    const customer = await Customer.findById(quote.customerId);
+    if (!customer) {
+      throw new CustomError('Customer not found', 404);
+    }
+    customerEmail = customer.email;
+    customerName = `${customer.firstName} ${customer.lastName}`;
+  } else {
+    const customer = quote.customerId as ICustomer;
+    customerEmail = customer.email;
+    customerName = `${customer.firstName} ${customer.lastName}`;
+  }
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: customerEmail,
+    subject: 'Next Steps for Your Same Day Ramps Quote',
+    html: `
+      <h1>Thank you for accepting your quote!</h1>
+      <p>Dear ${customerName},</p>
+      <p>To complete your order, please follow these steps:</p>
+      <ol>
+        <li><a href="${paymentLink}">Make your payment</a></li>
+        <li><a href="${signatureLink}">Sign the agreement</a></li>
+      </ol>
+      <p>If you have any questions, please don't hesitate to contact us.</p>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error('Error sending follow-up email:', error);
+    throw new CustomError('Failed to send follow-up email', 500);
+  }
+}

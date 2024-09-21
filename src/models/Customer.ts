@@ -1,5 +1,4 @@
-// src/models/Customer.ts
-import { Schema, model, Types, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
 export interface ICustomer extends Document {
   firstName: string;
