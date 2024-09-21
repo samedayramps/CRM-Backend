@@ -22,9 +22,10 @@ export const quoteRules = [
   body('pricingCalculations.deliveryFee').isFloat({ min: 0 }),
   body('pricingCalculations.installFee').isFloat({ min: 0 }),
   body('pricingCalculations.monthlyRentalRate').isFloat({ min: 0 }),
-  body('pricingCalculations.totalUpfront').isFloat({ min: 0 }), // Changed from totalAmount
+  body('pricingCalculations.totalUpfront').isFloat({ min: 0 }),
   body('pricingCalculations.distance').isFloat({ min: 0 }),
-  body('status').isIn(['pending', 'approved', 'rejected']),
+  body('pricingCalculations.warehouseAddress').isString().notEmpty(),
+  body('status').isIn(['draft', 'sent', 'accepted', 'paid', 'completed']),
 ];
 
 export const customerRules = [
