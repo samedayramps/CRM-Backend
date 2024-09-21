@@ -179,9 +179,12 @@ import quotesRouter from './routes/quotes';
 import pricingVariablesRouter from './routes/pricingVariables';
 import calculatePricingRouter from './routes/calculatePricing';
 import paymentsRouter from './routes/payments';
+import stripeWebhooksRouter from './routes/stripeWebhooks';
+import esignatureWebhooksRouter from './routes/esignatureWebhooks';
 import { errorHandler } from './middlewares/errorHandler';
 import dotenv from 'dotenv';
 import path from 'path';
+import manualSignatureRouter from './routes/manualSignature';
 
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -211,6 +214,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
+  exposedHeaders: ['Location'],
 }));
 
 console.log('CORS middleware added');
@@ -227,6 +231,12 @@ app.use('/api/quotes', quotesRouter);
 app.use('/api/pricing-variables', pricingVariablesRouter);
 app.use('/api/calculate-pricing', calculatePricingRouter);
 app.use('/api/payments', paymentsRouter);
+app.use('/api/manual-signature', manualSignatureRouter);
+
+// New webhook routes
+app.use('/api/webhooks/stripe', stripeWebhooksRouter);
+// Update this line to match the incoming webhook URL
+app.use('/api/signatures/webhook', esignatureWebhooksRouter);
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
@@ -263,9 +273,10 @@ export const quoteRules = [
   body('pricingCalculations.deliveryFee').isFloat({ min: 0 }),
   body('pricingCalculations.installFee').isFloat({ min: 0 }),
   body('pricingCalculations.monthlyRentalRate').isFloat({ min: 0 }),
-  body('pricingCalculations.totalUpfront').isFloat({ min: 0 }), // Changed from totalAmount
+  body('pricingCalculations.totalUpfront').isFloat({ min: 0 }),
   body('pricingCalculations.distance').isFloat({ min: 0 }),
-  body('status').isIn(['pending', 'approved', 'rejected']),
+  body('pricingCalculations.warehouseAddress').isString().notEmpty(),
+  body('status').isIn(['draft', 'sent', 'accepted', 'paid', 'completed']),
 ];
 
 export const customerRules = [
@@ -299,6 +310,34 @@ export const rentalRequestRules = [
   body('rampDetails.mobilityAids.*').isIn(['wheelchair', 'motorized_scooter', 'walker_cane', 'none']),
   body('installAddress').trim().notEmpty(),
 ];
+```
+
+# src/utils/tokenUtils.ts
+
+```ts
+import crypto from 'crypto';
+
+const SECRET_KEY = process.env.TOKEN_SECRET_KEY || 'your-secret-key';
+const TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+export function generateAcceptanceToken(quoteId: string): string {
+  const timestamp = Date.now();
+  const data = `${quoteId}-${timestamp}`;
+  const hash = crypto.createHmac('sha256', SECRET_KEY).update(data).digest('hex');
+  return `${timestamp}.${hash}`;
+}
+
+export function verifyAcceptanceToken(quoteId: string, token: string): boolean {
+  const [timestamp, hash] = token.split('.');
+  if (!timestamp || !hash) return false;
+
+  const now = Date.now();
+  if (now - parseInt(timestamp) > TOKEN_EXPIRY) return false;
+
+  const data = `${quoteId}-${timestamp}`;
+  const expectedHash = crypto.createHmac('sha256', SECRET_KEY).update(data).digest('hex');
+  return hash === expectedHash;
+}
 ```
 
 # src/utils/pushNotification.ts
@@ -403,6 +442,171 @@ export class CustomError extends Error {
 }
 ```
 
+# src/templates/quoteEmail.ts
+
+```ts
+import { IQuote } from '../models/Quote';
+import { ICustomer } from '../models/Customer';
+import { Types } from 'mongoose';
+import { generateAcceptanceToken } from '../utils/tokenUtils';
+
+export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): string {
+  const customerName = getCustomerName(quote);
+  const acceptanceToken = quote._id ? generateAcceptanceToken(quote._id.toString()) : '';
+  const acceptanceUrl = `${acceptUrl}?token=${acceptanceToken}`;
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Your Same Day Ramps Quote</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        h1 { color: #2c3e50; }
+        .quote-details {
+          background-color: #f8f9fa;
+          border: 1px solid #e9ecef;
+          border-radius: 5px;
+          padding: 15px;
+          margin-bottom: 20px;
+        }
+        .accept-button {
+          display: inline-block;
+          background-color: #4CAF50;
+          color: white;
+          padding: 10px 20px;
+          text-decoration: none;
+          border-radius: 5px;
+          font-weight: bold;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Your Same Day Ramps Quote</h1>
+      
+      <p>Hi ${customerName},</p>
+      
+      <p>Thanks for choosing Same Day Ramps. Here's a breakdown of your quote:</p>
+      
+      <div class="quote-details">
+        <p>Ramp Length: ${quote.rampConfiguration.totalLength} feet</p>
+        <p>Total Upfront Cost: $${quote.pricingCalculations.totalUpfront.toFixed(2)} (Includes delivery, installation, and future removal)</p>
+        <p>Monthly Rental: $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</p>
+      </div>
+
+      <h3>Ramp Details:</h3>
+      <ul>
+        <li>3 feet wide with handrails on both sides</li>
+        <li>100% solid aluminum, supports up to 1000 pounds</li>
+        <li>Installation takes 2-5 hours, depending on configuration</li>
+      </ul>
+
+      <h3>What you should know:</h3>
+      <ul>
+        <li>No minimum rental period - rent for as long as you need</li>
+        <li>When you're done, we'll remove the ramp within 7 days at no extra cost</li>
+        <li>The upfront cost covers delivery, installation, and future removal</li>
+      </ul>
+
+      <h3>What happens next:</h3>
+      <ol>
+        <li>If you're happy with the quote, click the link below to accept.</li>
+        <li>Pay the upfront cost and sign the rental agreement.</li>
+        <li>We'll deliver the ramp and install it at no hassle to you.</li>
+      </ol>
+
+      <p>
+        <a href="${acceptanceUrl}" class="accept-button">Accept Quote</a>
+      </p>
+
+      <h3>Questions?</h3>
+      <p>
+        We're here to help. Reach out anytime:<br>
+        - Call us: (940) 373-5713<br>
+        - Email: ty@samedayramps.com
+      </p>
+
+      <p>Thanks again for considering us. We're looking forward to helping you out!</p>
+
+      <p>
+        Best,<br>
+        Ty Walls | Same Day Ramps
+      </p>
+
+      <hr>
+
+      <p>
+        Same Day Ramps | 6008 Windridge Ln, Flower Mound TX | <a href="https://www.samedayramps.com">www.samedayramps.com</a>
+      </p>
+    </body>
+    </html>
+  `;
+}
+
+function getCustomerName(quote: IQuote): string {
+  if (quote.customerId) {
+    if (quote.customerId instanceof Types.ObjectId) {
+      return quote.customerName.split(' ')[0]; // Get first name
+    } else {
+      const customer = quote.customerId as ICustomer;
+      return customer.firstName;
+    }
+  }
+  return 'Valued Customer';
+}
+```
+
+# src/types/Quote.ts
+
+```ts
+export interface Quote {
+  // ... (other fields)
+  status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
+  // ... (other fields)
+}
+```
+
+# src/services/stripeService.ts
+
+```ts
+import Stripe from 'stripe';
+import { IQuote } from '../models/Quote';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+
+export async function generateStripePaymentLink(quote: IQuote): Promise<string> {
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Ramp Rental - Upfront Payment',
+          },
+          unit_amount: Math.round(quote.pricingCalculations.totalUpfront * 100),
+        },
+        quantity: 1,
+      },
+    ],
+    mode: 'payment',
+    success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.FRONTEND_URL}/payment-cancelled`,
+  });
+
+  return session.url!;
+}
+```
+
 # src/services/pricingService.ts
 
 ```ts
@@ -452,6 +656,116 @@ export async function calculatePricing(rampConfiguration: RampConfiguration, ins
   } catch (error) {
     console.error('Error in calculatePricing:', error);
     throw error;
+  }
+}
+```
+
+# src/services/emailService.ts
+
+```ts
+import nodemailer from 'nodemailer';
+import { Quote, IQuote } from '../models/Quote';
+import { CustomError } from '../utils/CustomError';
+import { generateQuoteEmailTemplate } from '../templates/quoteEmail';
+import { Customer, ICustomer } from '../models/Customer';
+import { Types } from 'mongoose';
+
+// Configure the email transporter
+const transporter = nodemailer.createTransport({
+  // Configure your email service here
+  // For example, using Gmail:
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+export async function sendQuoteEmail(quote: IQuote): Promise<void> {
+  if (!quote.customerId) {
+    throw new CustomError('Invalid customer data in quote', 400);
+  }
+
+  // Populate the customer data if it's not already populated
+  const populatedQuote = await Quote.findById(quote._id).populate('customerId');
+  if (!populatedQuote || !populatedQuote.customerId) {
+    throw new CustomError('Failed to populate quote data', 500);
+  }
+
+  let customerEmail: string;
+
+  if (populatedQuote.customerId instanceof Types.ObjectId) {
+    // If customerId is still an ObjectId, fetch the customer separately
+    const customer = await Customer.findById(populatedQuote.customerId);
+    if (!customer) {
+      throw new CustomError('Customer not found', 404);
+    }
+    customerEmail = customer.email;
+  } else {
+    // If customerId is already populated
+    const customer = populatedQuote.customerId as ICustomer;
+    customerEmail = customer.email;
+  }
+
+  const acceptUrl = `${process.env.FRONTEND_URL}/quotes/${quote._id}/accept`;
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: customerEmail,
+    subject: 'Your Quote from Same Day Ramps',
+    html: generateQuoteEmailTemplate(populatedQuote, acceptUrl),
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw new CustomError('Failed to send quote email', 500);
+  }
+}
+
+export async function sendFollowUpEmail(quote: IQuote, paymentLink: string, signatureLink: string): Promise<void> {
+  if (!quote.customerId) {
+    throw new CustomError('Invalid customer data in quote', 400);
+  }
+
+  let customerEmail: string;
+  let customerName: string;
+
+  if (quote.customerId instanceof Types.ObjectId) {
+    const customer = await Customer.findById(quote.customerId);
+    if (!customer) {
+      throw new CustomError('Customer not found', 404);
+    }
+    customerEmail = customer.email;
+    customerName = `${customer.firstName} ${customer.lastName}`;
+  } else {
+    const customer = quote.customerId as ICustomer;
+    customerEmail = customer.email;
+    customerName = `${customer.firstName} ${customer.lastName}`;
+  }
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: customerEmail,
+    subject: 'Next Steps for Your Same Day Ramps Quote',
+    html: `
+      <h1>Thank you for accepting your quote!</h1>
+      <p>Dear ${customerName},</p>
+      <p>To complete your order, please follow these steps:</p>
+      <ol>
+        <li><a href="${paymentLink}">Make your payment</a></li>
+        <li><a href="${signatureLink}">Sign the agreement</a></li>
+      </ol>
+      <p>If you have any questions, please don't hesitate to contact us.</p>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error('Error sending follow-up email:', error);
+    throw new CustomError('Failed to send follow-up email', 500);
   }
 }
 ```
@@ -541,14 +855,10 @@ export class EsignatureService {
 
   constructor() {
     this.token = process.env.ESIGNATURES_IO_TOKEN ?? '';
-    this.apiUrl = process.env.ESIGNATURES_IO_API_URL ?? 'https://api.esignatures.io';
+    this.apiUrl = 'https://esignatures.io/api'; // Update this to the correct API URL
 
     if (!this.token) {
-      throw new CustomError('ESIGNATURES_IO_TOKEN is not set in the environment variables. Please add it to your .env file.', 500);
-    }
-
-    if (!this.apiUrl) {
-      throw new CustomError('ESIGNATURES_IO_API_URL is not set in the environment variables. Please add it to your .env file.', 500);
+      throw new CustomError('ESIGNATURES_IO_TOKEN is not set in the environment variables.', 500);
     }
   }
 
@@ -556,20 +866,34 @@ export class EsignatureService {
     templateId: string;
     signers: Array<{ name: string; email: string }>;
     metadata?: string;
-    placeholderFields?: Array<{ api_key: string; value: string }>;
+    customFields: Array<{ api_key: string; value: string }>;
   }) {
     try {
+      const requestBody = {
+        template_id: data.templateId,
+        signers: data.signers,
+        custom_fields: data.customFields,
+        metadata: data.metadata
+      };
+
+      console.log('Sending e-signature request:', JSON.stringify(requestBody, null, 2));
       const response = await axios.post(
         `${this.apiUrl}/contracts?token=${this.token}`,
-        data,
+        requestBody,
         {
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000 // 10 seconds timeout
         }
       );
+      console.log('E-signature response:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
-      console.error('Error sending e-signature request:', error.response?.data || error.message);
-      throw new CustomError('Failed to send e-signature request', 500);
+      console.error('Error in sendEsignatureRequest:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        console.error('E-signature request failed:', error.response.data);
+        throw new CustomError(`E-signature request failed: ${JSON.stringify(error.response.data)}`, error.response.status);
+      }
+      throw new CustomError('An unexpected error occurred while sending e-signature request', 500);
     }
   }
 
@@ -585,6 +909,7 @@ export class EsignatureService {
     }
   }
 }
+
 ```
 
 # src/scripts/seedPricingVariables.ts
@@ -628,6 +953,58 @@ const seedPricingVariables = async () => {
 };
 
 seedPricingVariables();
+```
+
+# src/routes/stripeWebhooks.ts
+
+```ts
+import express from 'express';
+import { Quote } from '../models/Quote';
+import { CustomError } from '../utils/CustomError';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+const router = express.Router();
+
+router.post('/', express.raw({type: 'application/json'}), async (req, res, next) => {
+  const sig = req.headers['stripe-signature'];
+
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret);
+  } catch (err: any) {
+    return next(new CustomError(`Webhook Error: ${err.message}`, 400));
+  }
+
+  // Handle the event
+  switch (event.type) {
+    case 'payment_intent.succeeded':
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      await Quote.findOneAndUpdate(
+        { paymentIntentId: paymentIntent.id },
+        { paymentStatus: 'paid', status: 'paid' }
+      );
+      break;
+    case 'payment_intent.payment_failed':
+      const failedPaymentIntent = event.data.object as Stripe.PaymentIntent;
+      await Quote.findOneAndUpdate(
+        { paymentIntentId: failedPaymentIntent.id },
+        { paymentStatus: 'failed' }
+      );
+      break;
+    // ... handle other event types
+    default:
+      console.log(`Unhandled event type ${event.type}`);
+  }
+
+  // Return a response to acknowledge receipt of the event
+  res.json({received: true});
+});
+
+export default router;
 ```
 
 # src/routes/rentalRequests.ts
@@ -759,11 +1136,17 @@ export default router;
 ```ts
 import express, { Request, Response, NextFunction } from 'express';
 import { Quote } from '../models/Quote';
+import { Customer, ICustomer } from '../models/Customer'; // Add this line
 import { calculatePricing } from '../services/pricingService';
 import { validationResult } from 'express-validator';
 import { quoteRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
 import { Types } from 'mongoose';
+import { sendQuoteEmail, sendFollowUpEmail } from '../services/emailService';
+import { verifyAcceptanceToken } from '../utils/tokenUtils';
+import { generateStripePaymentLink } from '../services/stripeService';
+import { EsignatureService } from '../services/EsignatureService';
+import { IQuote } from '../models/Quote'; // Make sure to import IQuote
 
 const router = express.Router();
 
@@ -867,19 +1250,160 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
-// Add this route to your quotes.ts file
+// Send quote email
 router.post('/:id/send-email', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const quote = await Quote.findById(req.params.id);
-    if (!quote) {
-      throw new CustomError('Quote not found', 404);
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid quote ID', 400));
     }
-    // Implement your email sending logic here
-    // You might want to use a service like nodemailer or a third-party email API
-    // await sendEmail(quote);
+
+    const quote = await Quote.findById(id).populate('customerId');
+    if (!quote) {
+      return next(new CustomError('Quote not found', 404));
+    }
+
+    await sendQuoteEmail(quote);
+
+    // Update quote status to 'sent'
+    quote.status = 'sent';
+    await quote.save();
+
     res.json({ message: 'Quote email sent successfully' });
   } catch (error: any) {
     next(new CustomError(error.message, 500));
+  }
+});
+
+// Accept quote
+router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { token } = req.query;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid quote ID', 400));
+    }
+
+    if (!token || typeof token !== 'string') {
+      return next(new CustomError('Invalid or missing acceptance token', 400));
+    }
+
+    // Verify the acceptance token
+    const isValidToken = verifyAcceptanceToken(id, token);
+    if (!isValidToken) {
+      return next(new CustomError('Invalid or expired acceptance token', 401));
+    }
+
+    const quote = await Quote.findById(id).populate('customerId');
+    if (!quote) {
+      return next(new CustomError('Quote not found', 404));
+    }
+
+    // Assert the type of quote
+    const typedQuote = quote as IQuote & { _id: Types.ObjectId };
+
+    // Update quote status to 'accepted'
+    typedQuote.status = 'accepted';
+    await typedQuote.save();
+
+    // Generate Stripe payment link
+    const paymentLink = await generateStripePaymentLink(typedQuote);
+
+    // Generate eSignatures.io agreement
+    const esignatureService = new EsignatureService();
+    let customerEmail: string;
+    let customerName: string;
+
+    if (typedQuote.customerId instanceof Types.ObjectId) {
+      const customer = await Customer.findById(typedQuote.customerId);
+      if (!customer) {
+        throw new CustomError('Customer not found', 404);
+      }
+      customerEmail = customer.email;
+      customerName = `${customer.firstName} ${customer.lastName}`;
+    } else {
+      const customer = typedQuote.customerId as ICustomer;
+      customerEmail = customer.email;
+      customerName = `${customer.firstName} ${customer.lastName}`;
+    }
+
+    let signatureLink: string;
+    let agreementId: string;
+    try {
+      console.log('Sending e-signature request for quote:', typedQuote._id);
+      const signatureResponse = await esignatureService.sendEsignatureRequest({
+        templateId: process.env.ESIGNATURE_TEMPLATE_ID!,
+        signers: [{ name: customerName, email: customerEmail }],
+        metadata: JSON.stringify({ quoteId: typedQuote._id.toString() }),
+        customFields: [
+          { api_key: "date", value: new Date().toLocaleDateString() },
+          { api_key: "customerName", value: customerName },
+          { api_key: "totalLength", value: typedQuote.rampConfiguration.totalLength.toString() },
+          { api_key: "number-of-landings", value: typedQuote.rampConfiguration.components.filter(c => c.type === 'landing').length.toString() },
+          { api_key: "monthlyRentalRate", value: typedQuote.pricingCalculations.monthlyRentalRate.toFixed(2) },
+          { api_key: "totalUpfront", value: typedQuote.pricingCalculations.totalUpfront.toFixed(2) },
+          { api_key: "installAddress", value: typedQuote.installAddress },
+        ],
+      });
+      console.log('E-signature response:', JSON.stringify(signatureResponse, null, 2));
+      
+      if (signatureResponse.data && signatureResponse.data.contract && signatureResponse.data.contract.id) {
+        agreementId = signatureResponse.data.contract.id;
+        signatureLink = signatureResponse.data.contract.signers[0].sign_page_url;
+        
+        // Update the quote with the agreementId
+        await Quote.findByIdAndUpdate(typedQuote._id, {
+          agreementId: agreementId,
+          agreementStatus: 'sent'
+        });
+      } else {
+        throw new Error('Invalid response structure from eSignatures.io');
+      }
+    } catch (error: any) {
+      console.error('Failed to send e-signature request:', error);
+      // If e-signature fails, we'll use the manual signature route
+      signatureLink = `${process.env.FRONTEND_URL}/manual-signature?quoteId=${typedQuote._id}`;
+    }
+
+    // Send follow-up email with payment and signature links
+    await sendFollowUpEmail(typedQuote, paymentLink, signatureLink);
+
+    // Return JSON response
+    res.json({
+      message: 'Quote accepted successfully',
+      quoteId: typedQuote._id,
+      paymentLink,
+      signatureLink
+    });
+  } catch (error: any) {
+    console.error('Error accepting quote:', error);
+    next(new CustomError(error.message, error.statusCode || 500));
+  }
+});
+
+// Add this new route for testing
+router.get('/test-esignature', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const esignatureService = new EsignatureService();
+    const response = await esignatureService.sendEsignatureRequest({
+      templateId: process.env.ESIGNATURE_TEMPLATE_ID!,
+      signers: [{ name: 'Test User', email: 'test@example.com' }],
+      metadata: 'Test request',
+      customFields: [
+        { api_key: "date", value: new Date().toLocaleDateString() },
+        { api_key: "customerName", value: 'Test User' },
+        { api_key: "totalLength", value: '4' },
+        { api_key: "number-of-landings", value: '0' },
+        { api_key: "monthlyRentalRate", value: '40.00' },
+        { api_key: "totalUpfront", value: '95.90' },
+        { api_key: "installAddress", value: '3400 W Plano Pkwy, Plano, TX 75075, USA' },
+      ],
+    });
+    res.json(response);
+  } catch (error: any) {
+    next(new CustomError(error.message, error.statusCode || 500));
   }
 });
 
@@ -1023,6 +1547,64 @@ router.get('/status/:paymentIntentId', async (req: Request, res: Response, next:
 export default router;
 ```
 
+# src/routes/manualSignature.ts
+
+```ts
+import express, { Request, Response, NextFunction } from 'express';
+import { Quote, IQuote } from '../models/Quote';
+import { CustomError } from '../utils/CustomError';
+
+const router = express.Router();
+
+router.get('/:quoteId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { quoteId } = req.params;
+    const quote = await Quote.findById(quoteId).populate('customerId');
+    if (!quote) {
+      throw new CustomError('Quote not found', 404);
+    }
+    
+    // Render a simple form for manual signature
+    res.send(`
+      <h1>Manual Signature Required</h1>
+      <p>Please sign below to accept the quote:</p>
+      <form action="/api/manual-signature/${quoteId}" method="POST">
+        <input type="text" name="signature" placeholder="Type your full name" required>
+        <button type="submit">Sign and Accept</button>
+      </form>
+    `);
+  } catch (error: any) {
+    next(new CustomError(error.message, error.statusCode || 500));
+  }
+});
+
+router.post('/:quoteId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { quoteId } = req.params;
+    const { signature } = req.body;
+    
+    const quote = await Quote.findById(quoteId);
+    if (!quote) {
+      throw new CustomError('Quote not found', 404);
+    }
+    
+    // Update quote with manual signature
+    const updatedQuote: Partial<IQuote> = {
+      manualSignature: signature,
+      signatureDate: new Date()
+    };
+    
+    await Quote.findByIdAndUpdate(quoteId, updatedQuote);
+    
+    res.redirect(`${process.env.FRONTEND_URL}/quote-accepted?id=${quoteId}`);
+  } catch (error: any) {
+    next(new CustomError(error.message, error.statusCode || 500));
+  }
+});
+
+export default router;
+```
+
 # src/routes/esignatures.ts
 
 ```ts
@@ -1066,6 +1648,80 @@ router.get('/status/:contractId', async (req: Request, res: Response, next: Next
     const status = await esignatureService.checkEsignatureStatus(contractId);
     res.json(status);
   } catch (error: any) {
+    next(new CustomError(error.message, 500));
+  }
+});
+
+export default router;
+```
+
+# src/routes/esignatureWebhooks.ts
+
+```ts
+import express from 'express';
+import { Quote } from '../models/Quote';
+import { CustomError } from '../utils/CustomError';
+
+const router = express.Router();
+
+router.post('/', express.json(), async (req, res, next) => {
+  try {
+    const { secret_token, status, data } = req.body;
+
+    console.log('Received webhook request. Token:', secret_token);
+
+    if (!secret_token || secret_token !== process.env.ESIGNATURES_IO_TOKEN) {
+      console.log('Invalid token. Expected:', process.env.ESIGNATURES_IO_TOKEN, 'Received:', secret_token);
+      return next(new CustomError('Invalid or missing token', 401));
+    }
+
+    console.log('Received eSignatures webhook event:', JSON.stringify(req.body, null, 2));
+
+    if (!data || !data.contract || !data.contract.id) {
+      console.log('Invalid event structure. Missing contract.id');
+      return next(new CustomError('Invalid event structure', 400));
+    }
+
+    let updateResult;
+
+    switch (status) {
+      case 'contract-sent':
+      case 'contract-viewed':
+      case 'contract-signed':
+      case 'contract-declined':
+        updateResult = await Quote.findOneAndUpdate(
+          { agreementId: data.contract.id },
+          { agreementStatus: status.replace('contract-', '') },
+          { new: true }
+        );
+
+        if (!updateResult && data.contract.metadata) {
+          const metadata = JSON.parse(data.contract.metadata);
+          if (metadata.quoteId) {
+            updateResult = await Quote.findByIdAndUpdate(
+              metadata.quoteId,
+              { 
+                agreementId: data.contract.id,
+                agreementStatus: status.replace('contract-', '')
+              },
+              { new: true }
+            );
+          }
+        }
+        break;
+      default:
+        console.log(`Unhandled event type: ${status}`);
+    }
+
+    if (updateResult) {
+      console.log('Quote updated:', updateResult);
+    } else {
+      console.log('No quote found with agreementId:', data.contract.id);
+    }
+
+    res.sendStatus(200);
+  } catch (error: any) {
+    console.error('Error processing eSignatures webhook:', error);
     next(new CustomError(error.message, 500));
   }
 });
@@ -1348,8 +2004,15 @@ export interface IQuote extends Document {
   rentalRequestId?: Types.ObjectId;
   rampConfiguration: RampConfiguration;
   pricingCalculations: PricingCalculations;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
   createdAt: Date;
+  manualSignature?: string; // Add this line
+  signatureDate?: Date; // Add this line
+  installAddress: string; // Add this line
+  paymentStatus: 'pending' | 'processing' | 'paid' | 'failed';
+  paymentIntentId?: string;
+  agreementStatus: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
+  agreementId?: string;
 }
 
 const quoteSchema = new Schema<IQuote>({
@@ -1372,8 +2035,27 @@ const quoteSchema = new Schema<IQuote>({
     distance: { type: Number, required: true },
     warehouseAddress: { type: String, required: true } // Changed from companyAddress
   },
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  status: { 
+    type: String, 
+    enum: ['draft', 'sent', 'accepted', 'paid', 'completed'], 
+    default: 'draft' 
+  },
   createdAt: { type: Date, default: Date.now },
+  manualSignature: { type: String, required: false }, // Add this line
+  signatureDate: { type: Date, required: false }, // Added comma here
+  installAddress: { type: String, required: true }, // Add comma here
+  paymentStatus: { 
+    type: String, 
+    enum: ['pending', 'processing', 'paid', 'failed'], 
+    default: 'pending' 
+  },
+  paymentIntentId: { type: String, required: false },
+  agreementStatus: { 
+    type: String, 
+    enum: ['pending', 'sent', 'viewed', 'signed', 'declined'], 
+    default: 'pending' 
+  },
+  agreementId: { type: String, required: false }
 });
 
 // Enable virtuals in JSON output if needed
@@ -1415,8 +2097,7 @@ export const PricingVariables = model<IPricingVariables>('PricingVariables', pri
 # src/models/Customer.ts
 
 ```ts
-// src/models/Customer.ts
-import { Schema, model, Types, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
 export interface ICustomer extends Document {
   firstName: string;

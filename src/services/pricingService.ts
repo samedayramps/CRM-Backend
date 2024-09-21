@@ -2,13 +2,19 @@ import { PricingVariables } from '../models/PricingVariables';
 import { calculateDistance } from './distanceCalculation';
 import { CustomError } from '../utils/CustomError';
 
+interface RampComponent {
+  type: 'ramp' | 'landing';
+  length: number;
+  quantity: number;
+}
+
 interface RampConfiguration {
-  components: string[];
+  components: RampComponent[];
   totalLength: number;
 }
 
 export async function calculatePricing(rampConfiguration: RampConfiguration, installAddress: string, warehouseAddress: string) {
-  console.log('Received in calculatePricing:', { rampConfiguration, installAddress, warehouseAddress });  // Add this line
+  console.log('Received in calculatePricing:', { rampConfiguration, installAddress, warehouseAddress });
 
   if (!installAddress || !warehouseAddress) {
     throw new CustomError('Install address and warehouse address are required', 400);
@@ -26,8 +32,11 @@ export async function calculatePricing(rampConfiguration: RampConfiguration, ins
     const deliveryFee = variables.baseDeliveryFee + 
       variables.deliveryFeePerMile * distance;
 
+    // Calculate install fee based on the quantity of each component
     const installFee = variables.baseInstallFee + 
-      variables.installFeePerComponent * rampConfiguration.components.length;
+      rampConfiguration.components.reduce((total, component) => {
+        return total + (variables.installFeePerComponent * component.quantity);
+      }, 0);
 
     const monthlyRentalRate = variables.rentalRatePerFt * rampConfiguration.totalLength;
 
