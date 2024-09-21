@@ -15,15 +15,15 @@ interface RampConfiguration {
 interface QuoteRequest {
   rampConfiguration: RampConfiguration;
   customerAddress: string;
-  companyAddress: string;
+  warehouseAddress: string; // Changed from companyAddress
 }
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { rampConfiguration, customerAddress, companyAddress } = req.body as QuoteRequest;
+    const { rampConfiguration, customerAddress, warehouseAddress } = req.body as QuoteRequest; // Changed from companyAddress
 
-    if (!customerAddress || !companyAddress) {
-      throw new CustomError('Customer address and company address are required', 400);
+    if (!customerAddress || !warehouseAddress) { // Changed from companyAddress
+      throw new CustomError('Customer address and warehouse address are required', 400); // Changed error message
     }
 
     const pricingCalculations = await calculatePricing(rampConfiguration, customerAddress);

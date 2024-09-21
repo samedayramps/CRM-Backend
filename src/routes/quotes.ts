@@ -1,8 +1,10 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { Quote } from '../models/Quote';
+import { calculatePricing } from '../services/pricingService';
 import { validationResult } from 'express-validator';
 import { quoteRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
+import { Types } from 'mongoose';
 
 const router = express.Router();
 
@@ -22,11 +24,17 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 // Get a specific quote
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const quote = await Quote.findById(req.params.id)
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid quote ID', 400));
+    }
+
+    const quote = await Quote.findById(id)
       .populate('customerId')
       .populate('rentalRequestId');
     if (!quote) {
-      throw new CustomError('Quote not found', 404);
+      return next(new CustomError('Quote not found', 404));
     }
     res.json(quote);
   } catch (error: any) {
@@ -35,16 +43,16 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // Create a new quote
-router.post('/', quoteRules, async (req: Request, res: Response, next: NextFunction) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
+router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const quoteData = req.body;
-    // Ensure totalUpfront is set correctly in pricingCalculations
-    quoteData.pricingCalculations.totalUpfront = quoteData.pricingCalculations.deliveryFee + quoteData.pricingCalculations.installFee;
+    const { installAddress, warehouseAddress } = req.body; // Changed from companyAddress
+    const pricingCalculations = await calculatePricing(installAddress, warehouseAddress); // Changed from companyAddress
+
+    const quoteData = {
+      ...req.body,
+      pricingCalculations
+    };
+
     const quote = new Quote(quoteData);
     await quote.save();
     res.status(201).json(quote);

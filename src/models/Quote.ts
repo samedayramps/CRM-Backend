@@ -18,6 +18,7 @@ interface PricingCalculations {
   monthlyRentalRate: number;
   totalUpfront: number; // Changed from totalAmount
   distance: number;
+  warehouseAddress: string; // Changed from companyAddress
 }
 
 export interface IQuote extends Document {
@@ -47,7 +48,8 @@ const quoteSchema = new Schema<IQuote>({
     installFee: { type: Number, required: true },
     monthlyRentalRate: { type: Number, required: true },
     totalUpfront: { type: Number, required: true }, // Changed from totalAmount
-    distance: { type: Number, required: true }
+    distance: { type: Number, required: true },
+    warehouseAddress: { type: String, required: true } // Changed from companyAddress
   },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   createdAt: { type: Date, default: Date.now },

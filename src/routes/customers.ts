@@ -5,6 +5,7 @@ import { RentalRequest } from '../models/RentalRequest';
 import { body, validationResult } from 'express-validator';
 import { customerRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
+import { Types } from 'mongoose';
 
 const router = express.Router();
 
@@ -32,9 +33,15 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 // Get a specific customer
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const customer = await Customer.findById(req.params.id);
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid customer ID', 400));
+    }
+
+    const customer = await Customer.findById(id);
     if (!customer) {
-      throw new CustomError('Customer not found', 404);
+      return next(new CustomError('Customer not found', 404));
     }
     res.json(customer);
   } catch (error: any) {
