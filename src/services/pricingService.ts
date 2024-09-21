@@ -7,9 +7,9 @@ interface RampConfiguration {
   totalLength: number;
 }
 
-export async function calculatePricing(rampConfiguration: RampConfiguration, customerAddress: string, warehouseAddress: string) {
-  if (!customerAddress || !warehouseAddress) {
-    throw new CustomError('Customer address and warehouse address are required', 400);
+export async function calculatePricing(rampConfiguration: RampConfiguration, installAddress: string, warehouseAddress: string) {
+  if (!installAddress || !warehouseAddress) {
+    throw new CustomError('Install address and warehouse address are required', 400);
   }
 
   const variables = await PricingVariables.findOne().sort({ updatedAt: -1 });
@@ -19,7 +19,7 @@ export async function calculatePricing(rampConfiguration: RampConfiguration, cus
   }
 
   try {
-    const { distance } = await calculateDistance(warehouseAddress, customerAddress);
+    const { distance } = await calculateDistance(warehouseAddress, installAddress);
 
     const deliveryFee = variables.baseDeliveryFee + 
       variables.deliveryFeePerMile * distance;

@@ -6,12 +6,12 @@ interface DistanceResult {
   duration: number; // in seconds
 }
 
-export async function calculateDistance(origin: string, destination: string): Promise<DistanceResult> {
+export async function calculateDistance(warehouseAddress: string, installAddress: string): Promise<DistanceResult> {
   try {
-    console.log('Calculating distance:', { origin, destination }); // Add this line for debugging
+    console.log('Calculating distance:', { warehouseAddress, installAddress }); // Add this line for debugging
 
-    if (!origin || !destination) {
-      throw new CustomError('Origin and destination are required', 400);
+    if (!warehouseAddress || !installAddress) {
+      throw new CustomError('Warehouse address and install address are required', 400);
     }
 
     if (!process.env.GOOGLE_MAPS_API_KEY) {
@@ -20,8 +20,8 @@ export async function calculateDistance(origin: string, destination: string): Pr
 
     const response = await axios.get('https://maps.googleapis.com/maps/api/distancematrix/json', {
       params: {
-        origins: origin,
-        destinations: destination,
+        origins: warehouseAddress,
+        destinations: installAddress,
         units: 'imperial',
         key: process.env.GOOGLE_MAPS_API_KEY,
       },
