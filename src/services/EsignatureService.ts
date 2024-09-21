@@ -7,7 +7,7 @@ export class EsignatureService {
 
   constructor() {
     this.token = process.env.ESIGNATURES_IO_TOKEN ?? '';
-    this.apiUrl = process.env.ESIGNATURES_IO_API_URL ?? 'https://api.esignatures.io';
+    this.apiUrl = 'https://esignatures.io/api'; // Update this to the correct API URL
 
     if (!this.token) {
       throw new CustomError('ESIGNATURES_IO_TOKEN is not set in the environment variables.', 500);
@@ -21,6 +21,7 @@ export class EsignatureService {
     placeholderFields?: Array<{ api_key: string; value: string }>;
   }) {
     try {
+      console.log('Sending e-signature request:', JSON.stringify(data, null, 2));
       const response = await axios.post(
         `${this.apiUrl}/contracts?token=${this.token}`,
         data,
@@ -29,17 +30,14 @@ export class EsignatureService {
           timeout: 10000 // 10 seconds timeout
         }
       );
+      console.log('E-signature response:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
-      if (error.code === 'ENOTFOUND') {
-        console.error('DNS resolution failed for e-signature service:', error);
-        throw new CustomError('Unable to connect to e-signature service. Please try again later.', 503);
-      }
+      console.error('Error in sendEsignatureRequest:', error);
       if (axios.isAxiosError(error)) {
         console.error('E-signature request failed:', error.response?.data || error.message);
         throw new CustomError(`E-signature request failed: ${error.message}`, error.response?.status || 500);
       }
-      console.error('Unexpected error in sendEsignatureRequest:', error);
       throw new CustomError('An unexpected error occurred while sending e-signature request', 500);
     }
   }

@@ -191,12 +191,19 @@ router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction
 
     let signatureLink: string;
     try {
+      console.log('Sending e-signature request for quote:', quote._id);
       const signatureResponse = await esignatureService.sendEsignatureRequest({
-        templateId: process.env.ESIGNATURE_TEMPLATE_ID!, // Make sure this is set in your .env file
+        templateId: process.env.ESIGNATURE_TEMPLATE_ID!,
         signers: [{ name: customerName, email: customerEmail }],
         metadata: `Quote ID: ${quote._id}`,
       });
-      signatureLink = signatureResponse.signing_link;
+      console.log('E-signature response:', JSON.stringify(signatureResponse, null, 2));
+      
+      if (signatureResponse.data && signatureResponse.data.contract && signatureResponse.data.contract.signers && signatureResponse.data.contract.signers[0]) {
+        signatureLink = signatureResponse.data.contract.signers[0].sign_page_url;
+      } else {
+        throw new Error('Invalid response structure from eSignatures.io');
+      }
     } catch (error: any) {
       console.error('Failed to send e-signature request:', error);
       // If e-signature fails, we'll still continue with the process
@@ -215,6 +222,21 @@ router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction
     });
   } catch (error: any) {
     console.error('Error accepting quote:', error);
+    next(new CustomError(error.message, error.statusCode || 500));
+  }
+});
+
+// Add this new route for testing
+router.get('/test-esignature', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const esignatureService = new EsignatureService();
+    const response = await esignatureService.sendEsignatureRequest({
+      templateId: process.env.ESIGNATURE_TEMPLATE_ID!,
+      signers: [{ name: 'Test User', email: 'test@example.com' }],
+      metadata: 'Test request',
+    });
+    res.json(response);
+  } catch (error: any) {
     next(new CustomError(error.message, error.statusCode || 500));
   }
 });
