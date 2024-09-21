@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.post('/', express.json(), async (req, res, next) => {
   try {
-    const token = req.query.token;
+    const token = req.headers['x-esignatures-token'] as string;
 
     console.log('Received webhook request. Token:', token);
 
