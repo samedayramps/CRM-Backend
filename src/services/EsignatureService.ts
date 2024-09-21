@@ -18,13 +18,20 @@ export class EsignatureService {
     templateId: string;
     signers: Array<{ name: string; email: string }>;
     metadata?: string;
-    placeholderFields?: Array<{ api_key: string; value: string }>;
+    customFields: Array<{ api_key: string; value: string }>;
   }) {
     try {
-      console.log('Sending e-signature request:', JSON.stringify(data, null, 2));
+      const requestBody = {
+        template_id: data.templateId,
+        signers: data.signers,
+        custom_fields: data.customFields,
+        metadata: data.metadata
+      };
+
+      console.log('Sending e-signature request:', JSON.stringify(requestBody, null, 2));
       const response = await axios.post(
         `${this.apiUrl}/contracts?token=${this.token}`,
-        data,
+        requestBody,
         {
           headers: { 'Content-Type': 'application/json' },
           timeout: 10000 // 10 seconds timeout
@@ -34,9 +41,9 @@ export class EsignatureService {
       return response.data;
     } catch (error: any) {
       console.error('Error in sendEsignatureRequest:', error);
-      if (axios.isAxiosError(error)) {
-        console.error('E-signature request failed:', error.response?.data || error.message);
-        throw new CustomError(`E-signature request failed: ${error.message}`, error.response?.status || 500);
+      if (axios.isAxiosError(error) && error.response) {
+        console.error('E-signature request failed:', error.response.data);
+        throw new CustomError(`E-signature request failed: ${JSON.stringify(error.response.data)}`, error.response.status);
       }
       throw new CustomError('An unexpected error occurred while sending e-signature request', 500);
     }

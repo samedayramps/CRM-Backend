@@ -10,6 +10,7 @@ import { sendQuoteEmail, sendFollowUpEmail } from '../services/emailService';
 import { verifyAcceptanceToken } from '../utils/tokenUtils';
 import { generateStripePaymentLink } from '../services/stripeService';
 import { EsignatureService } from '../services/EsignatureService';
+import { IQuote } from '../models/Quote'; // Make sure to import IQuote
 
 const router = express.Router();
 
@@ -164,38 +165,51 @@ router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction
       return next(new CustomError('Quote not found', 404));
     }
 
+    // Assert the type of quote
+    const typedQuote = quote as IQuote & { _id: Types.ObjectId };
+
     // Update quote status to 'accepted'
-    quote.status = 'accepted';
-    await quote.save();
+    typedQuote.status = 'accepted';
+    await typedQuote.save();
 
     // Generate Stripe payment link
-    const paymentLink = await generateStripePaymentLink(quote);
+    const paymentLink = await generateStripePaymentLink(typedQuote);
 
     // Generate eSignatures.io agreement
     const esignatureService = new EsignatureService();
     let customerEmail: string;
     let customerName: string;
 
-    if (quote.customerId instanceof Types.ObjectId) {
-      const customer = await Customer.findById(quote.customerId);
+    if (typedQuote.customerId instanceof Types.ObjectId) {
+      const customer = await Customer.findById(typedQuote.customerId);
       if (!customer) {
         throw new CustomError('Customer not found', 404);
       }
       customerEmail = customer.email;
       customerName = `${customer.firstName} ${customer.lastName}`;
     } else {
-      const customer = quote.customerId as ICustomer;
+      const customer = typedQuote.customerId as ICustomer;
       customerEmail = customer.email;
       customerName = `${customer.firstName} ${customer.lastName}`;
     }
 
     let signatureLink: string;
     try {
-      console.log('Sending e-signature request for quote:', quote._id);
+      console.log('Sending e-signature request for quote:', typedQuote._id);
       const signatureResponse = await esignatureService.sendEsignatureRequest({
         templateId: process.env.ESIGNATURE_TEMPLATE_ID!,
         signers: [{ name: customerName, email: customerEmail }],
-        metadata: `Quote ID: ${quote._id}`,
+        metadata: JSON.stringify({ quoteId: typedQuote._id.toString() }),
+        customFields: [
+          { api_key: "date", value: new Date().toLocaleDateString() },
+          { api_key: "renter-name", value: customerName },
+          { api_key: "ramp-length", value: typedQuote.rampConfiguration.totalLength.toString() },
+          { api_key: "number-of-landings", value: typedQuote.rampConfiguration.components.filter(c => c.type === 'landing').length.toString() },
+          { api_key: "monthly-rent", value: typedQuote.pricingCalculations.monthlyRentalRate.toFixed(2) },
+          { api_key: "delivery-fee", value: typedQuote.pricingCalculations.deliveryFee.toFixed(2) },
+          { api_key: "installation-fee", value: typedQuote.pricingCalculations.installFee.toFixed(2) },
+          { api_key: "installation-address", value: typedQuote.installAddress },
+        ],
       });
       console.log('E-signature response:', JSON.stringify(signatureResponse, null, 2));
       
@@ -206,17 +220,17 @@ router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction
       }
     } catch (error: any) {
       console.error('Failed to send e-signature request:', error);
-      // If e-signature fails, we'll still continue with the process
-      signatureLink = `${process.env.FRONTEND_URL}/manual-signature?quoteId=${quote._id}`;
+      // If e-signature fails, we'll use the manual signature route
+      signatureLink = `${process.env.FRONTEND_URL}/manual-signature?quoteId=${typedQuote._id}`;
     }
 
     // Send follow-up email with payment and signature links
-    await sendFollowUpEmail(quote, paymentLink, signatureLink);
+    await sendFollowUpEmail(typedQuote, paymentLink, signatureLink);
 
-    // Return JSON response instead of redirecting
+    // Return JSON response
     res.json({
       message: 'Quote accepted successfully',
-      quoteId: quote._id,
+      quoteId: typedQuote._id,
       paymentLink,
       signatureLink
     });
@@ -234,6 +248,16 @@ router.get('/test-esignature', async (req: Request, res: Response, next: NextFun
       templateId: process.env.ESIGNATURE_TEMPLATE_ID!,
       signers: [{ name: 'Test User', email: 'test@example.com' }],
       metadata: 'Test request',
+      customFields: [
+        { api_key: "date", value: new Date().toLocaleDateString() },
+        { api_key: "renter-name", value: 'Test User' },
+        { api_key: "ramp-length", value: '4' },
+        { api_key: "number-of-landings", value: '0' },
+        { api_key: "monthly-rent", value: '40.00' },
+        { api_key: "delivery-fee", value: '45.90' },
+        { api_key: "installation-fee", value: '50.00' },
+        { api_key: "installation-address", value: '3400 W Plano Pkwy, Plano, TX 75075, USA' },
+      ],
     });
     res.json(response);
   } catch (error: any) {

@@ -31,6 +31,7 @@ export interface IQuote extends Document {
   createdAt: Date;
   manualSignature?: string; // Add this line
   signatureDate?: Date; // Add this line
+  installAddress: string; // Add this line
 }
 
 const quoteSchema = new Schema<IQuote>({
@@ -60,7 +61,8 @@ const quoteSchema = new Schema<IQuote>({
   },
   createdAt: { type: Date, default: Date.now },
   manualSignature: { type: String, required: false }, // Add this line
-  signatureDate: { type: Date, required: false } // Add this line
+  signatureDate: { type: Date, required: false }, // Added comma here
+  installAddress: { type: String, required: true } // Add this line
 });
 
 // Enable virtuals in JSON output if needed
