@@ -206,8 +206,13 @@ router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction
     // Send follow-up email with payment and signature links
     await sendFollowUpEmail(quote, paymentLink, signatureLink);
 
-    // Redirect to a success page or send a success response
-    res.redirect(`${process.env.FRONTEND_URL}/quote-accepted?id=${quote._id}&paymentLink=${encodeURIComponent(paymentLink)}&signatureLink=${encodeURIComponent(signatureLink)}`);
+    // Return JSON response instead of redirecting
+    res.json({
+      message: 'Quote accepted successfully',
+      quoteId: quote._id,
+      paymentLink,
+      signatureLink
+    });
   } catch (error: any) {
     console.error('Error accepting quote:', error);
     next(new CustomError(error.message, error.statusCode || 500));

@@ -39,6 +39,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
+  exposedHeaders: ['Location'], // Add this line to expose the Location header
 }));
 
 console.log('CORS middleware added');
