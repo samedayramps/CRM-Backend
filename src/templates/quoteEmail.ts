@@ -9,11 +9,11 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
   if (quote.customerId) {
     if (quote.customerId instanceof Types.ObjectId) {
       // If customerId is an ObjectId, use the customerName from the quote
-      customerName = quote.customerName;
+      customerName = quote.customerName.split(' ')[0]; // Get first name
     } else {
       // If customerId is a populated ICustomer
       const customer = quote.customerId as ICustomer;
-      customerName = `${customer.firstName} ${customer.lastName}`;
+      customerName = customer.firstName;
     }
   }
   
@@ -26,7 +26,7 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Your Quote from Same Day Ramps</title>
+      <title>Your Same Day Ramps Quote</title>
       <style>
         body {
           font-family: Arial, sans-serif;
@@ -65,32 +65,51 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
     </head>
     <body>
       <div class="container">
-        <h1>Your Quote from Same Day Ramps</h1>
-        <p>Dear ${customerName},</p>
-        <p>Thank you for your interest in Same Day Ramps. We're pleased to provide you with the following quote:</p>
+        <h1>Your Same Day Ramps Quote</h1>
+        
+        <p>Hi ${customerName},</p>
+        
+        <p>Thanks for choosing Same Day Ramps. Here's a simple breakdown of your quote:</p>
         
         <div class="quote-details">
-          <h2>Quote Details</h2>
           <ul>
-            <li><strong>Total Ramp Length:</strong> ${quote.rampConfiguration.totalLength} ft</li>
-            <li><strong>Delivery Fee:</strong> $${quote.pricingCalculations.deliveryFee.toFixed(2)}</li>
-            <li><strong>Install Fee:</strong> $${quote.pricingCalculations.installFee.toFixed(2)}</li>
-            <li><strong>Monthly Rental Rate:</strong> $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</li>
-            <li><strong>Total Upfront Cost:</strong> $${quote.pricingCalculations.totalUpfront.toFixed(2)}</li>
+            <li>Ramp Length: ${quote.rampConfiguration.totalLength} feet</li>
+            <li>Delivery Fee: $${quote.pricingCalculations.deliveryFee.toFixed(2)}</li>
+            <li>Install Fee: $${quote.pricingCalculations.installFee.toFixed(2)}</li>
+            <li>Monthly Rental: $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</li>
+            <li>Total Upfront Cost: $${quote.pricingCalculations.totalUpfront.toFixed(2)}</li>
           </ul>
         </div>
 
-        <p>To accept this quote and proceed with your order, please click the button below:</p>
-        
+        <p>What happens next:</p>
+        <ol>
+          <li>If you're happy with the quote, click the link below to accept.</li>
+          <li>Pay the upfront cost and sign the rental agreement.</li>
+          <li>We'll deliver the ramp and install it at no hassle to you.</li>
+        </ol>
+
         <p>
           <a href="${acceptanceUrl}" class="accept-button">Accept Quote</a>
         </p>
 
-        <p>If you have any questions or need further information, please don't hesitate to contact us. We're here to help!</p>
+        <p>
+          <strong>Questions?</strong><br>
+          We're here to help. Reach out anytime:<br>
+          - Call us: (940) 373-5713<br>
+          - Email: ty@samedayramps.com
+        </p>
+
+        <p>Thanks again for considering us. We're looking forward to helping you out!</p>
 
         <p>
-          Best regards,<br>
-          The Same Day Ramps Team
+          Best,<br>
+          Ty Walls | Same Day Ramps
+        </p>
+
+        <hr>
+
+        <p>
+          Same Day Ramps | 6008 Windridge Ln, Flower Mound TX | <a href="https://www.samedayramps.com">www.samedayramps.com</a>
         </p>
       </div>
     </body>
