@@ -32,6 +32,10 @@ export interface IQuote extends Document {
   manualSignature?: string; // Add this line
   signatureDate?: Date; // Add this line
   installAddress: string; // Add this line
+  paymentStatus: 'pending' | 'processing' | 'paid' | 'failed';
+  paymentIntentId?: string;
+  agreementStatus: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
+  agreementId?: string;
 }
 
 const quoteSchema = new Schema<IQuote>({
@@ -62,7 +66,19 @@ const quoteSchema = new Schema<IQuote>({
   createdAt: { type: Date, default: Date.now },
   manualSignature: { type: String, required: false }, // Add this line
   signatureDate: { type: Date, required: false }, // Added comma here
-  installAddress: { type: String, required: true } // Add this line
+  installAddress: { type: String, required: true }, // Add comma here
+  paymentStatus: { 
+    type: String, 
+    enum: ['pending', 'processing', 'paid', 'failed'], 
+    default: 'pending' 
+  },
+  paymentIntentId: { type: String, required: false },
+  agreementStatus: { 
+    type: String, 
+    enum: ['pending', 'sent', 'viewed', 'signed', 'declined'], 
+    default: 'pending' 
+  },
+  agreementId: { type: String, required: false }
 });
 
 // Enable virtuals in JSON output if needed

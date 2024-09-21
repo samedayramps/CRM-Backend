@@ -202,13 +202,12 @@ router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction
         metadata: JSON.stringify({ quoteId: typedQuote._id.toString() }),
         customFields: [
           { api_key: "date", value: new Date().toLocaleDateString() },
-          { api_key: "renter-name", value: customerName },
-          { api_key: "ramp-length", value: typedQuote.rampConfiguration.totalLength.toString() },
+          { api_key: "customerName", value: customerName },
+          { api_key: "totalLength", value: typedQuote.rampConfiguration.totalLength.toString() },
           { api_key: "number-of-landings", value: typedQuote.rampConfiguration.components.filter(c => c.type === 'landing').length.toString() },
-          { api_key: "monthly-rent", value: typedQuote.pricingCalculations.monthlyRentalRate.toFixed(2) },
-          { api_key: "delivery-fee", value: typedQuote.pricingCalculations.deliveryFee.toFixed(2) },
-          { api_key: "installation-fee", value: typedQuote.pricingCalculations.installFee.toFixed(2) },
-          { api_key: "installation-address", value: typedQuote.installAddress },
+          { api_key: "monthlyRentalRate", value: typedQuote.pricingCalculations.monthlyRentalRate.toFixed(2) },
+          { api_key: "totalUpfront", value: typedQuote.pricingCalculations.totalUpfront.toFixed(2) },
+          { api_key: "installAddress", value: typedQuote.installAddress },
         ],
       });
       console.log('E-signature response:', JSON.stringify(signatureResponse, null, 2));
@@ -250,13 +249,12 @@ router.get('/test-esignature', async (req: Request, res: Response, next: NextFun
       metadata: 'Test request',
       customFields: [
         { api_key: "date", value: new Date().toLocaleDateString() },
-        { api_key: "renter-name", value: 'Test User' },
-        { api_key: "ramp-length", value: '4' },
+        { api_key: "customerName", value: 'Test User' },
+        { api_key: "totalLength", value: '4' },
         { api_key: "number-of-landings", value: '0' },
-        { api_key: "monthly-rent", value: '40.00' },
-        { api_key: "delivery-fee", value: '45.90' },
-        { api_key: "installation-fee", value: '50.00' },
-        { api_key: "installation-address", value: '3400 W Plano Pkwy, Plano, TX 75075, USA' },
+        { api_key: "monthlyRentalRate", value: '40.00' },
+        { api_key: "totalUpfront", value: '95.90' },
+        { api_key: "installAddress", value: '3400 W Plano Pkwy, Plano, TX 75075, USA' },
       ],
     });
     res.json(response);

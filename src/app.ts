@@ -6,6 +6,8 @@ import quotesRouter from './routes/quotes';
 import pricingVariablesRouter from './routes/pricingVariables';
 import calculatePricingRouter from './routes/calculatePricing';
 import paymentsRouter from './routes/payments';
+import stripeWebhooksRouter from './routes/stripeWebhooks';
+import esignatureWebhooksRouter from './routes/esignatureWebhooks';
 import { errorHandler } from './middlewares/errorHandler';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -39,7 +41,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
-  exposedHeaders: ['Location'], // Add this line to expose the Location header
+  exposedHeaders: ['Location'],
 }));
 
 console.log('CORS middleware added');
@@ -57,6 +59,10 @@ app.use('/api/pricing-variables', pricingVariablesRouter);
 app.use('/api/calculate-pricing', calculatePricingRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/manual-signature', manualSignatureRouter);
+
+// New webhook routes
+app.use('/api/webhooks/stripe', stripeWebhooksRouter);
+app.use('/api/webhooks/esignature', esignatureWebhooksRouter);
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
