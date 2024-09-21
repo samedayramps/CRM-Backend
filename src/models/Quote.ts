@@ -27,7 +27,7 @@ export interface IQuote extends Document {
   rentalRequestId?: Types.ObjectId;
   rampConfiguration: RampConfiguration;
   pricingCalculations: PricingCalculations;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
   createdAt: Date;
 }
 
@@ -51,7 +51,11 @@ const quoteSchema = new Schema<IQuote>({
     distance: { type: Number, required: true },
     warehouseAddress: { type: String, required: true } // Changed from companyAddress
   },
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  status: { 
+    type: String, 
+    enum: ['draft', 'sent', 'accepted', 'paid', 'completed'], 
+    default: 'draft' 
+  },
   createdAt: { type: Date, default: Date.now },
 });
 

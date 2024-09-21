@@ -196,7 +196,8 @@ console.log('Express app created');
 const allowedOrigins = [
   'https://form.samedayramps.com',
   'http://localhost:3001',
-  'https://app.samedayramps.com'
+  'https://app.samedayramps.com',
+  'https://samedayramps.netlify.app'
 ];
 
 app.use(cors({
@@ -274,7 +275,7 @@ export const customerRules = [
   body('email').isEmail(),
   body('installAddress').trim().notEmpty(),
   body('mobilityAids').isArray(),
-  body('preferredContactMethod').optional().isIn(['email', 'phone', 'text']),
+  // Removed: body('preferredContactMethod').optional().isIn(['email', 'phone', 'text']),
   body('notes').optional().trim(),
 ];
 
@@ -414,37 +415,44 @@ interface RampConfiguration {
   totalLength: number;
 }
 
-export async function calculatePricing(rampConfiguration: RampConfiguration, customerAddress: string) {
+export async function calculatePricing(rampConfiguration: RampConfiguration, installAddress: string, warehouseAddress: string) {
+  console.log('Received in calculatePricing:', { rampConfiguration, installAddress, warehouseAddress });  // Add this line
+
+  if (!installAddress || !warehouseAddress) {
+    throw new CustomError('Install address and warehouse address are required', 400);
+  }
+
   const variables = await PricingVariables.findOne().sort({ updatedAt: -1 });
 
   if (!variables) {
     throw new CustomError('Pricing variables not set', 500);
   }
 
-  const companyAddress = process.env.COMPANY_ADDRESS;
-  if (!companyAddress) {
-    throw new CustomError('Company address not set', 500);
+  try {
+    const { distance } = await calculateDistance(warehouseAddress, installAddress);
+
+    const deliveryFee = variables.baseDeliveryFee + 
+      variables.deliveryFeePerMile * distance;
+
+    const installFee = variables.baseInstallFee + 
+      variables.installFeePerComponent * rampConfiguration.components.length;
+
+    const monthlyRentalRate = variables.rentalRatePerFt * rampConfiguration.totalLength;
+
+    const totalUpfront = deliveryFee + installFee;
+
+    return {
+      deliveryFee,
+      installFee,
+      monthlyRentalRate,
+      totalUpfront,
+      distance,
+      warehouseAddress,
+    };
+  } catch (error) {
+    console.error('Error in calculatePricing:', error);
+    throw error;
   }
-
-  const { distance } = await calculateDistance(companyAddress, customerAddress);
-
-  const deliveryFee = variables.baseDeliveryFee + 
-    variables.deliveryFeePerMile * distance;
-
-  const installFee = variables.baseInstallFee + 
-    variables.installFeePerComponent * rampConfiguration.components.length;
-
-  const monthlyRentalRate = variables.rentalRatePerFt * rampConfiguration.totalLength;
-
-  const totalAmount = deliveryFee + installFee;
-
-  return {
-    deliveryFee,
-    installFee,
-    monthlyRentalRate,
-    totalAmount,
-    distance,
-  };
 }
 ```
 
@@ -459,10 +467,12 @@ interface DistanceResult {
   duration: number; // in seconds
 }
 
-export async function calculateDistance(origin: string, destination: string): Promise<DistanceResult> {
+export async function calculateDistance(warehouseAddress: string, installAddress: string): Promise<DistanceResult> {
   try {
-    if (!origin || !destination) {
-      throw new CustomError('Origin and destination are required', 400);
+    console.log('Calculating distance:', { warehouseAddress, installAddress }); // Add this line for debugging
+
+    if (!warehouseAddress || !installAddress) {
+      throw new CustomError('Warehouse address and install address are required', 400);
     }
 
     if (!process.env.GOOGLE_MAPS_API_KEY) {
@@ -471,8 +481,8 @@ export async function calculateDistance(origin: string, destination: string): Pr
 
     const response = await axios.get('https://maps.googleapis.com/maps/api/distancematrix/json', {
       params: {
-        origins: origin,
-        destinations: destination,
+        origins: warehouseAddress,
+        destinations: installAddress,
         units: 'imperial',
         key: process.env.GOOGLE_MAPS_API_KEY,
       },
@@ -505,6 +515,7 @@ export async function calculateDistance(origin: string, destination: string): Pr
       duration: element.duration.value,
     };
   } catch (error: any) {
+    console.error('Error in calculateDistance:', error); // Add this line for debugging
     if (error instanceof CustomError) {
       throw error;
     }
@@ -630,6 +641,7 @@ import { rentalRequestRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
 import { sendRentalRequestNotification } from '../utils/emailNotification';
 import { sendPushNotification } from '../utils/pushNotification';
+import { Types } from 'mongoose';
 
 const router = express.Router();
 
@@ -638,6 +650,27 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const rentalRequests = await RentalRequest.find().sort({ createdAt: -1 });
     res.json(rentalRequests);
+  } catch (error: any) {
+    next(new CustomError(error.message, 500));
+  }
+});
+
+// Get a single rental request by ID
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid rental request ID', 400));
+    }
+
+    const rentalRequest = await RentalRequest.findById(id);
+
+    if (!rentalRequest) {
+      return next(new CustomError('Rental request not found', 404));
+    }
+
+    res.json(rentalRequest);
   } catch (error: any) {
     next(new CustomError(error.message, 500));
   }
@@ -726,9 +759,11 @@ export default router;
 ```ts
 import express, { Request, Response, NextFunction } from 'express';
 import { Quote } from '../models/Quote';
+import { calculatePricing } from '../services/pricingService';
 import { validationResult } from 'express-validator';
 import { quoteRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
+import { Types } from 'mongoose';
 
 const router = express.Router();
 
@@ -748,11 +783,17 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 // Get a specific quote
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const quote = await Quote.findById(req.params.id)
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid quote ID', 400));
+    }
+
+    const quote = await Quote.findById(id)
       .populate('customerId')
       .populate('rentalRequestId');
     if (!quote) {
-      throw new CustomError('Quote not found', 404);
+      return next(new CustomError('Quote not found', 404));
     }
     res.json(quote);
   } catch (error: any) {
@@ -761,21 +802,28 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // Create a new quote
-router.post('/', quoteRules, async (req: Request, res: Response, next: NextFunction) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
+router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const quoteData = req.body;
-    // Ensure totalUpfront is set correctly in pricingCalculations
-    quoteData.pricingCalculations.totalUpfront = quoteData.pricingCalculations.deliveryFee + quoteData.pricingCalculations.installFee;
+    const { rampConfiguration, installAddress, warehouseAddress } = req.body;
+    console.log('Quote request body:', req.body); // Add this line for debugging
+
+    if (!installAddress || !warehouseAddress) {
+      throw new CustomError('Install address and warehouse address are required', 400);
+    }
+
+    const pricingCalculations = await calculatePricing(rampConfiguration, installAddress, warehouseAddress);
+
+    const quoteData = {
+      ...req.body,
+      pricingCalculations
+    };
+
     const quote = new Quote(quoteData);
     await quote.save();
     res.status(201).json(quote);
   } catch (error: any) {
-    next(new CustomError(error.message, 500));
+    console.error('Error creating quote:', error); // Add this line for debugging
+    next(new CustomError(error.message, error.statusCode || 500));
   }
 });
 
@@ -1035,6 +1083,7 @@ import { RentalRequest } from '../models/RentalRequest';
 import { body, validationResult } from 'express-validator';
 import { customerRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
+import { Types } from 'mongoose';
 
 const router = express.Router();
 
@@ -1046,7 +1095,6 @@ const validateCustomer = [
   body('email').isEmail().normalizeEmail(),
   body('installAddress').trim().notEmpty(),
   body('mobilityAids').isArray(),
-  body('preferredContactMethod').optional().isIn(['email', 'phone', 'text']),
   body('notes').optional().trim().escape(),
 ];
 
@@ -1063,9 +1111,15 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 // Get a specific customer
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const customer = await Customer.findById(req.params.id);
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid customer ID', 400));
+    }
+
+    const customer = await Customer.findById(id);
     if (!customer) {
-      throw new CustomError('Customer not found', 404);
+      return next(new CustomError('Customer not found', 404));
     }
     res.json(customer);
   } catch (error: any) {
@@ -1166,8 +1220,6 @@ export default router;
 ```ts
 // src/routes/calculatePricing.ts
 import { Router, Request, Response, NextFunction } from 'express';
-import { PricingVariables } from '../models/PricingVariables';
-import { calculateDistance } from '../services/distanceCalculation';
 import { CustomError } from '../utils/CustomError';
 import { calculatePricing } from '../services/pricingService';
 
@@ -1180,23 +1232,24 @@ interface RampConfiguration {
 
 interface QuoteRequest {
   rampConfiguration: RampConfiguration;
-  customerAddress: string;
-  companyAddress: string;
+  installAddress: string;  // Changed from customerAddress
+  warehouseAddress: string;
 }
 
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { rampConfiguration, customerAddress, companyAddress } = req.body as QuoteRequest;
+    const { rampConfiguration, installAddress, warehouseAddress } = req.body as QuoteRequest;
 
-    if (!customerAddress || !companyAddress) {
-      throw new CustomError('Customer address and company address are required', 400);
+    if (!installAddress || !warehouseAddress) {
+      throw new CustomError('Install address and warehouse address are required', 400);
     }
 
-    const pricingCalculations = await calculatePricing(rampConfiguration, customerAddress);
+    const pricingCalculations = await calculatePricing(rampConfiguration, installAddress, warehouseAddress);
 
     res.json(pricingCalculations);
   } catch (error: any) {
-    next(new CustomError(error.message, 500));
+    console.error('Error in calculatePricing route:', error);  // Add this line for debugging
+    next(new CustomError(error.message, error.statusCode || 500));
   }
 });
 
@@ -1286,6 +1339,7 @@ interface PricingCalculations {
   monthlyRentalRate: number;
   totalUpfront: number; // Changed from totalAmount
   distance: number;
+  warehouseAddress: string; // Changed from companyAddress
 }
 
 export interface IQuote extends Document {
@@ -1315,7 +1369,8 @@ const quoteSchema = new Schema<IQuote>({
     installFee: { type: Number, required: true },
     monthlyRentalRate: { type: Number, required: true },
     totalUpfront: { type: Number, required: true }, // Changed from totalAmount
-    distance: { type: Number, required: true }
+    distance: { type: Number, required: true },
+    warehouseAddress: { type: String, required: true } // Changed from companyAddress
   },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   createdAt: { type: Date, default: Date.now },
@@ -1372,7 +1427,7 @@ export interface ICustomer extends Document {
   mobilityAids: string[];
   rentalRequestId?: Types.ObjectId;
   notes?: string; // New field for additional customer information
-  preferredContactMethod?: string; // New field for communication preference
+  // Removed: preferredContactMethod?: string; // New field for communication preference
   createdAt: Date;
   updatedAt: Date; // New field to track last update
 }
@@ -1386,7 +1441,7 @@ const customerSchema = new Schema<ICustomer>({
   mobilityAids: { type: [String], required: true },
   rentalRequestId: { type: Schema.Types.ObjectId, ref: 'RentalRequest', required: false },
   notes: { type: String, required: false },
-  preferredContactMethod: { type: String, enum: ['email', 'phone', 'text'], required: false },
+  // Removed: preferredContactMethod: { type: String, enum: ['email', 'phone', 'text'], required: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

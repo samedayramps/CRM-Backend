@@ -5,6 +5,7 @@ import { validationResult } from 'express-validator';
 import { quoteRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
 import { Types } from 'mongoose';
+import { sendQuoteEmail } from '../services/emailService';
 
 const router = express.Router();
 
@@ -108,17 +109,53 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
-// Add this route to your quotes.ts file
+// Send quote email
 router.post('/:id/send-email', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const quote = await Quote.findById(req.params.id);
-    if (!quote) {
-      throw new CustomError('Quote not found', 404);
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid quote ID', 400));
     }
-    // Implement your email sending logic here
-    // You might want to use a service like nodemailer or a third-party email API
-    // await sendEmail(quote);
+
+    const quote = await Quote.findById(id).populate('customerId');
+    if (!quote) {
+      return next(new CustomError('Quote not found', 404));
+    }
+
+    await sendQuoteEmail(quote);
+
+    // Update quote status to 'sent'
+    quote.status = 'sent';
+    await quote.save();
+
     res.json({ message: 'Quote email sent successfully' });
+  } catch (error: any) {
+    next(new CustomError(error.message, 500));
+  }
+});
+
+// Accept quote
+router.post('/:id/accept', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid quote ID', 400));
+    }
+
+    const quote = await Quote.findById(id);
+    if (!quote) {
+      return next(new CustomError('Quote not found', 404));
+    }
+
+    // Update quote status to 'accepted'
+    quote.status = 'accepted';
+    await quote.save();
+
+    // You might want to trigger other actions here, like creating an order or sending a confirmation email
+
+    res.json({ message: 'Quote accepted successfully', quote });
   } catch (error: any) {
     next(new CustomError(error.message, 500));
   }
