@@ -23,7 +23,8 @@ console.log('Express app created');
 const allowedOrigins = [
   'https://form.samedayramps.com',
   'http://localhost:3001',
-  'https://app.samedayramps.com'
+  'https://app.samedayramps.com',
+  'https://samedayramps.netlify.app'
 ];
 
 app.use(cors({
