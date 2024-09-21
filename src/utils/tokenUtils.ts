@@ -1,15 +1,23 @@
 import crypto from 'crypto';
 
 const SECRET_KEY = process.env.TOKEN_SECRET_KEY || 'your-secret-key';
+const TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 export function generateAcceptanceToken(quoteId: string): string {
-  const data = `${quoteId}-${Date.now()}`;
-  return crypto.createHmac('sha256', SECRET_KEY).update(data).digest('hex');
+  const timestamp = Date.now();
+  const data = `${quoteId}-${timestamp}`;
+  const hash = crypto.createHmac('sha256', SECRET_KEY).update(data).digest('hex');
+  return `${timestamp}.${hash}`;
 }
 
 export function verifyAcceptanceToken(quoteId: string, token: string): boolean {
-  // In a real implementation, you'd want to store tokens with expiration times
-  // For simplicity, we're just checking if the token is valid for the quote ID
-  const generatedToken = generateAcceptanceToken(quoteId);
-  return token === generatedToken;
+  const [timestamp, hash] = token.split('.');
+  if (!timestamp || !hash) return false;
+
+  const now = Date.now();
+  if (now - parseInt(timestamp) > TOKEN_EXPIRY) return false;
+
+  const data = `${quoteId}-${timestamp}`;
+  const expectedHash = crypto.createHmac('sha256', SECRET_KEY).update(data).digest('hex');
+  return hash === expectedHash;
 }
