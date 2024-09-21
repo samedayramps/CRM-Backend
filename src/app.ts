@@ -62,7 +62,8 @@ app.use('/api/manual-signature', manualSignatureRouter);
 
 // New webhook routes
 app.use('/api/webhooks/stripe', stripeWebhooksRouter);
-app.use('/api/webhooks/esignature', esignatureWebhooksRouter);
+// Update this line to match the incoming webhook URL
+app.use('/api/signatures/webhook', esignatureWebhooksRouter);
 
 // Error handling middleware (should be last)
 app.use(errorHandler);

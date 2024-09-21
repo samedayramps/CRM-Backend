@@ -8,7 +8,10 @@ router.post('/', express.json(), async (req, res, next) => {
   try {
     const token = req.query.token;
 
+    console.log('Received webhook request. Token:', token);
+
     if (!token || token !== process.env.ESIGNATURES_IO_TOKEN) {
+      console.log('Invalid token. Expected:', process.env.ESIGNATURES_IO_TOKEN, 'Received:', token);
       return next(new CustomError('Invalid or missing token', 401));
     }
 
@@ -16,33 +19,50 @@ router.post('/', express.json(), async (req, res, next) => {
 
     console.log('Received eSignatures webhook event:', JSON.stringify(event, null, 2));
 
+    if (!event.contract || !event.contract.id) {
+      console.log('Invalid event structure. Missing contract.id');
+      return next(new CustomError('Invalid event structure', 400));
+    }
+
+    let updateResult;
+
     switch (event.event) {
       case 'contract_sent':
-        await Quote.findOneAndUpdate(
+        updateResult = await Quote.findOneAndUpdate(
           { agreementId: event.contract.id },
-          { agreementStatus: 'sent' }
+          { agreementStatus: 'sent' },
+          { new: true }
         );
         break;
       case 'contract_viewed':
-        await Quote.findOneAndUpdate(
+        updateResult = await Quote.findOneAndUpdate(
           { agreementId: event.contract.id },
-          { agreementStatus: 'viewed' }
+          { agreementStatus: 'viewed' },
+          { new: true }
         );
         break;
       case 'contract_signed':
-        await Quote.findOneAndUpdate(
+        updateResult = await Quote.findOneAndUpdate(
           { agreementId: event.contract.id },
-          { agreementStatus: 'signed' }
+          { agreementStatus: 'signed' },
+          { new: true }
         );
         break;
       case 'contract_declined':
-        await Quote.findOneAndUpdate(
+        updateResult = await Quote.findOneAndUpdate(
           { agreementId: event.contract.id },
-          { agreementStatus: 'declined' }
+          { agreementStatus: 'declined' },
+          { new: true }
         );
         break;
       default:
         console.log(`Unhandled event type: ${event.event}`);
+    }
+
+    if (updateResult) {
+      console.log('Quote updated:', updateResult);
+    } else {
+      console.log('No quote found with agreementId:', event.contract.id);
     }
 
     res.sendStatus(200);
