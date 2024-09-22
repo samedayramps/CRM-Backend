@@ -11,6 +11,7 @@ import { verifyAcceptanceToken } from '../utils/tokenUtils';
 import { generateStripePaymentLink } from '../services/stripeService';
 import { EsignatureService } from '../services/EsignatureService';
 import { IQuote } from '../models/Quote'; // Make sure to import IQuote
+import { Job } from '../models/Job';
 
 const router = express.Router();
 
@@ -140,7 +141,7 @@ router.post('/:id/send-email', async (req: Request, res: Response, next: NextFun
   }
 });
 
-// Accept quote
+// New route for quote acceptance
 router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -165,82 +166,69 @@ router.get('/:id/accept', async (req: Request, res: Response, next: NextFunction
       return next(new CustomError('Quote not found', 404));
     }
 
-    // Assert the type of quote
-    const typedQuote = quote as IQuote & { _id: Types.ObjectId };
+    // Check if the quote is already accepted
+    if (quote.status === 'accepted') {
+      return next(new CustomError('Quote has already been accepted', 400));
+    }
 
     // Update quote status to 'accepted'
-    typedQuote.status = 'accepted';
-    await typedQuote.save();
+    quote.status = 'accepted';
+    await quote.save();
 
     // Generate Stripe payment link
-    const paymentLink = await generateStripePaymentLink(typedQuote);
+    const paymentLink = await generateStripePaymentLink(quote);
 
     // Generate eSignatures.io agreement
     const esignatureService = new EsignatureService();
-    let customerEmail: string;
-    let customerName: string;
+    const customer = quote.customerId instanceof Types.ObjectId
+      ? await Customer.findById(quote.customerId)
+      : quote.customerId as ICustomer;
 
-    if (typedQuote.customerId instanceof Types.ObjectId) {
-      const customer = await Customer.findById(typedQuote.customerId);
-      if (!customer) {
-        throw new CustomError('Customer not found', 404);
-      }
-      customerEmail = customer.email;
-      customerName = `${customer.firstName} ${customer.lastName}`;
-    } else {
-      const customer = typedQuote.customerId as ICustomer;
-      customerEmail = customer.email;
-      customerName = `${customer.firstName} ${customer.lastName}`;
+    if (!customer) {
+      throw new CustomError('Customer not found', 404);
     }
 
-    let signatureLink: string;
-    let agreementId: string;
-    try {
-      console.log('Sending e-signature request for quote:', typedQuote._id);
-      const signatureResponse = await esignatureService.sendEsignatureRequest({
-        templateId: process.env.ESIGNATURE_TEMPLATE_ID!,
-        signers: [{ name: customerName, email: customerEmail }],
-        metadata: JSON.stringify({ quoteId: typedQuote._id.toString() }),
-        customFields: [
-          { api_key: "date", value: new Date().toLocaleDateString() },
-          { api_key: "customerName", value: customerName },
-          { api_key: "totalLength", value: typedQuote.rampConfiguration.totalLength.toString() },
-          { api_key: "number-of-landings", value: typedQuote.rampConfiguration.components.filter(c => c.type === 'landing').length.toString() },
-          { api_key: "monthlyRentalRate", value: typedQuote.pricingCalculations.monthlyRentalRate.toFixed(2) },
-          { api_key: "totalUpfront", value: typedQuote.pricingCalculations.totalUpfront.toFixed(2) },
-          { api_key: "installAddress", value: typedQuote.installAddress },
-        ],
-      });
-      console.log('E-signature response:', JSON.stringify(signatureResponse, null, 2));
-      
-      if (signatureResponse.data && signatureResponse.data.contract && signatureResponse.data.contract.id) {
-        agreementId = signatureResponse.data.contract.id;
-        signatureLink = signatureResponse.data.contract.signers[0].sign_page_url;
-        
-        // Update the quote with the agreementId
-        await Quote.findByIdAndUpdate(typedQuote._id, {
-          agreementId: agreementId,
-          agreementStatus: 'sent'
-        });
-      } else {
-        throw new Error('Invalid response structure from eSignatures.io');
-      }
-    } catch (error: any) {
-      console.error('Failed to send e-signature request:', error);
-      // If e-signature fails, we'll use the manual signature route
-      signatureLink = `${process.env.FRONTEND_URL}/manual-signature?quoteId=${typedQuote._id}`;
-    }
-
-    // Send follow-up email with payment and signature links
-    await sendFollowUpEmail(typedQuote, paymentLink, signatureLink);
-
-    // Return JSON response
-    res.json({
-      message: 'Quote accepted successfully',
-      quoteId: typedQuote._id,
-      paymentLink,
-      signatureLink
+    const signatureResponse = await esignatureService.sendEsignatureRequest({
+      templateId: process.env.ESIGNATURE_TEMPLATE_ID!,
+      signers: [{ name: `${customer.firstName} ${customer.lastName}`, email: customer.email }],
+      metadata: JSON.stringify({ quoteId: quote._id.toString() }),
+      customFields: [
+        { api_key: "date", value: new Date().toLocaleDateString() },
+        { api_key: "customerName", value: `${customer.firstName} ${customer.lastName}` },
+        { api_key: "totalLength", value: quote.rampConfiguration.totalLength.toString() },
+        { api_key: "number-of-landings", value: quote.rampConfiguration.components.filter(c => c.type === 'landing').length.toString() },
+        { api_key: "monthlyRentalRate", value: quote.pricingCalculations.monthlyRentalRate.toFixed(2) },
+        { api_key: "totalUpfront", value: quote.pricingCalculations.totalUpfront.toFixed(2) },
+        { api_key: "installAddress", value: quote.installAddress },
+      ],
     });
+
+    if (signatureResponse.data && signatureResponse.data.contract && signatureResponse.data.contract.id) {
+      quote.agreementId = signatureResponse.data.contract.id;
+      quote.agreementStatus = 'sent';
+      await quote.save();
+    }
+
+    // Create a new Job
+    const installationDate = new Date();
+    installationDate.setDate(installationDate.getDate() + 7); // Set installation date to 7 days from now
+
+    const newJob = new Job({
+      quoteId: quote._id,
+      customerId: quote.customerId,
+      installationDate: installationDate,
+      address: quote.installAddress,
+      status: 'scheduled'
+    });
+
+    await newJob.save();
+
+    // Send follow-up email
+    const signatureLink = signatureResponse.data.contract.signers[0].sign_page_url;
+    await sendFollowUpEmail(quote, paymentLink, signatureLink);
+
+    // Redirect to a thank you page
+    res.redirect(`${process.env.FRONTEND_URL}/quote-accepted?quoteId=${quote._id}`);
   } catch (error: any) {
     console.error('Error accepting quote:', error);
     next(new CustomError(error.message, error.statusCode || 500));

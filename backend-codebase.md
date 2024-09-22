@@ -10,8 +10,12 @@
     "strict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "types": ["jest", "node"]
-  }
+    "types": ["node"],
+    "typeRoots": ["./node_modules/@types"],
+    "moduleResolution": "node"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
 }
 ```
 
@@ -78,6 +82,18 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts'],
   maxWorkers: 1, // Run tests serially
 };
+```
+
+# error.log
+
+```log
+
+```
+
+# combined.log
+
+```log
+
 ```
 
 # .gitignore
@@ -219,12 +235,17 @@ app.use(cors({
 
 console.log('CORS middleware added');
 
+// **Move webhook routes before express.json()**
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhooksRouter);
+app.use('/api/webhooks/esignature', esignatureWebhooksRouter);
+
+// Global middleware for JSON requests
 app.use(express.json());
 
 // Handle OPTIONS requests
 app.options('*', cors());
 
-// Routes
+// Non-webhook routes
 app.use('/api/rental-requests', rentalRequestsRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/quotes', quotesRouter);
@@ -232,11 +253,6 @@ app.use('/api/pricing-variables', pricingVariablesRouter);
 app.use('/api/calculate-pricing', calculatePricingRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/manual-signature', manualSignatureRouter);
-
-// New webhook routes
-app.use('/api/webhooks/stripe', stripeWebhooksRouter);
-// Update this line to match the incoming webhook URL
-app.use('/api/signatures/webhook', esignatureWebhooksRouter);
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
@@ -455,100 +471,87 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
   const acceptanceToken = quote._id ? generateAcceptanceToken(quote._id.toString()) : '';
   const acceptanceUrl = `${acceptUrl}?token=${acceptanceToken}`;
 
+  const componentListHtml = quote.rampConfiguration.components.map(component => `
+    <li style="margin-bottom: 5px;">${component.quantity} x ${component.length}-foot ${component.type}</li>
+  `).join('');
+
   return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Your Same Day Ramps Quote</title>
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-        h1 { color: #2c3e50; }
-        .quote-details {
-          background-color: #f8f9fa;
-          border: 1px solid #e9ecef;
-          border-radius: 5px;
-          padding: 15px;
-          margin-bottom: 20px;
-        }
-        .accept-button {
-          display: inline-block;
-          background-color: #4CAF50;
-          color: white;
-          padding: 10px 20px;
-          text-decoration: none;
-          border-radius: 5px;
-          font-weight: bold;
-        }
-      </style>
-    </head>
-    <body>
-      <h1>Your Same Day Ramps Quote</h1>
-      
-      <p>Hi ${customerName},</p>
-      
-      <p>Thanks for choosing Same Day Ramps. Here's a breakdown of your quote:</p>
-      
-      <div class="quote-details">
-        <p>Ramp Length: ${quote.rampConfiguration.totalLength} feet</p>
-        <p>Total Upfront Cost: $${quote.pricingCalculations.totalUpfront.toFixed(2)} (Includes delivery, installation, and future removal)</p>
-        <p>Monthly Rental: $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</p>
-      </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Same Day Ramps Quote</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h1 style="color: #2c3e50; font-size: 24px; margin-bottom: 20px;">Your Same Day Ramps Quote</h1>
+  
+  <p style="margin-bottom: 15px;">Hi ${customerName},</p>
+  
+  <p style="margin-bottom: 20px;">Thanks for choosing Same Day Ramps. Here's a breakdown of your quote:</p>
+  
+  <div style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+    <h3 style="color: #2c3e50; font-size: 18px; margin-bottom: 10px;">Your Ramp Configuration:</h3>
+    <ul style="list-style-type: none; padding-left: 0; margin: 0;">
+      <li style="margin-bottom: 5px;">Total Length: ${quote.rampConfiguration.totalLength} feet</li>
+      ${componentListHtml}
+      <li style="margin-bottom: 5px;">Width: 3 feet with handrails on both sides</li>
+      <li style="margin-bottom: 5px;">Material: 100% solid aluminum, supports up to 1000 pounds</li>
+    </ul>
+  </div>
 
-      <h3>Ramp Details:</h3>
-      <ul>
-        <li>3 feet wide with handrails on both sides</li>
-        <li>100% solid aluminum, supports up to 1000 pounds</li>
-        <li>Installation takes 2-5 hours, depending on configuration</li>
-      </ul>
+  <div style="background-color: #fafde5; border: 1px solid #ebfd2a; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+    <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Total Upfront Cost: $${quote.pricingCalculations.totalUpfront.toFixed(2)}</p>
+    <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Monthly Rental: $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</p>
+    <p style="font-size: 14px; font-style: italic; margin-bottom: 15px;">Upfront cost includes delivery, installation, and future removal</p>
+  </div>
 
-      <h3>What you should know:</h3>
-      <ul>
-        <li>No minimum rental period - rent for as long as you need</li>
-        <li>When you're done, we'll remove the ramp within 7 days at no extra cost</li>
-        <li>The upfront cost covers delivery, installation, and future removal</li>
-      </ul>
+  <div style="text-align: center; margin-bottom: 30px;">
+    <a href="${acceptanceUrl}" style="display: inline-block; background-color: #ebfd2a; color: #000000; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 18px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">Accept Quote</a>
+  </div>
 
-      <h3>What happens next:</h3>
-      <ol>
-        <li>If you're happy with the quote, click the link below to accept.</li>
-        <li>Pay the upfront cost and sign the rental agreement.</li>
-        <li>We'll deliver the ramp and install it at no hassle to you.</li>
-      </ol>
+  <div style="margin-bottom: 20px;">
+    <h3 style="color: #2c3e50; font-size: 18px; margin-bottom: 10px;">What happens next:</h3>
+    <ol style="padding-left: 20px; margin: 0;">
+      <li style="margin-bottom: 5px;">If you're happy with the quote, click the "Accept Quote" button above.</li>
+      <li style="margin-bottom: 5px;">Pay the upfront cost and sign the rental agreement.</li>
+      <li style="margin-bottom: 5px;">We'll deliver the ramp and install it at no hassle to you.</li>
+    </ol>
+  </div>
 
-      <p>
-        <a href="${acceptanceUrl}" class="accept-button">Accept Quote</a>
-      </p>
+  <div style="margin-bottom: 20px;">
+    <h3 style="color: #2c3e50; font-size: 18px; margin-bottom: 10px;">What you should know:</h3>
+    <ul style="padding-left: 20px; margin: 0;">
+      <li style="margin-bottom: 5px;">No minimum rental period - rent for as long as you need</li>
+      <li style="margin-bottom: 5px;">When you're done, we'll remove the ramp within 7 days at no extra cost</li>
+      <li style="margin-bottom: 5px;">The upfront cost covers delivery, installation, and future removal</li>
+      <li style="margin-bottom: 5px;">Installation takes 2-5 hours, depending on configuration</li>
+    </ul>
+  </div>
 
-      <h3>Questions?</h3>
-      <p>
-        We're here to help. Reach out anytime:<br>
-        - Call us: (940) 373-5713<br>
-        - Email: ty@samedayramps.com
-      </p>
+  <div style="margin-bottom: 20px;">
+    <h3 style="color: #2c3e50; font-size: 18px; margin-bottom: 10px;">Questions?</h3>
+    <p>
+      We're here to help. Reach out anytime:<br>
+      - Call us: (940) 373-5713<br>
+      - Email: <a href="mailto:ty@samedayramps.com" style="color: #3498db; text-decoration: none;">ty@samedayramps.com</a>
+    </p>
+  </div>
 
-      <p>Thanks again for considering us. We're looking forward to helping you out!</p>
+  <p style="margin-bottom: 20px;">Thanks again for considering us. We're looking forward to helping you out!</p>
 
-      <p>
-        Best,<br>
-        Ty Walls | Same Day Ramps
-      </p>
+  <p style="margin-bottom: 20px;">
+    Best,<br>
+    Ty Walls | Same Day Ramps
+  </p>
 
-      <hr>
+  <hr style="border: none; border-top: 1px solid #e9ecef; margin: 20px 0;">
 
-      <p>
-        Same Day Ramps | 6008 Windridge Ln, Flower Mound TX | <a href="https://www.samedayramps.com">www.samedayramps.com</a>
-      </p>
-    </body>
-    </html>
+  <p style="font-size: 14px; color: #7f8c8d;">
+    Same Day Ramps | 6008 Windridge Ln, Flower Mound TX | <a href="https://www.samedayramps.com" style="color: #3498db; text-decoration: none;">www.samedayramps.com</a>
+  </p>
+</body>
+</html>
   `;
 }
 
@@ -565,16 +568,6 @@ function getCustomerName(quote: IQuote): string {
 }
 ```
 
-# src/types/Quote.ts
-
-```ts
-export interface Quote {
-  // ... (other fields)
-  status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
-  // ... (other fields)
-}
-```
-
 # src/services/stripeService.ts
 
 ```ts
@@ -584,6 +577,8 @@ import { IQuote } from '../models/Quote';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
 
 export async function generateStripePaymentLink(quote: IQuote): Promise<string> {
+  console.log('Generating payment link for quote:', quote._id);
+  
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [
@@ -601,7 +596,20 @@ export async function generateStripePaymentLink(quote: IQuote): Promise<string> 
     mode: 'payment',
     success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.FRONTEND_URL}/payment-cancelled`,
+    metadata: {
+      quoteId: quote._id.toString(),
+    },
   });
+
+  console.log('Stripe session created:', session.id);
+  console.log('Payment intent created:', session.payment_intent);
+
+  // Save the payment intent ID to the quote
+  quote.paymentIntentId = session.payment_intent as string;
+  await quote.save();
+
+  console.log('Quote updated with payment intent ID:', quote.paymentIntentId);
+  console.log('Updated quote:', JSON.stringify(quote, null, 2));
 
   return session.url!;
 }
@@ -614,13 +622,19 @@ import { PricingVariables } from '../models/PricingVariables';
 import { calculateDistance } from './distanceCalculation';
 import { CustomError } from '../utils/CustomError';
 
+interface RampComponent {
+  type: 'ramp' | 'landing';
+  length: number;
+  quantity: number;
+}
+
 interface RampConfiguration {
-  components: string[];
+  components: RampComponent[];
   totalLength: number;
 }
 
 export async function calculatePricing(rampConfiguration: RampConfiguration, installAddress: string, warehouseAddress: string) {
-  console.log('Received in calculatePricing:', { rampConfiguration, installAddress, warehouseAddress });  // Add this line
+  console.log('Received in calculatePricing:', { rampConfiguration, installAddress, warehouseAddress });
 
   if (!installAddress || !warehouseAddress) {
     throw new CustomError('Install address and warehouse address are required', 400);
@@ -638,8 +652,11 @@ export async function calculatePricing(rampConfiguration: RampConfiguration, ins
     const deliveryFee = variables.baseDeliveryFee + 
       variables.deliveryFeePerMile * distance;
 
+    // Calculate install fee based on the quantity of each component
     const installFee = variables.baseInstallFee + 
-      variables.installFeePerComponent * rampConfiguration.components.length;
+      rampConfiguration.components.reduce((total, component) => {
+        return total + (variables.installFeePerComponent * component.quantity);
+      }, 0);
 
     const monthlyRentalRate = variables.rentalRatePerFt * rampConfiguration.totalLength;
 
@@ -958,50 +975,172 @@ seedPricingVariables();
 # src/routes/stripeWebhooks.ts
 
 ```ts
+// src/routes/stripeWebhooks.ts
 import express from 'express';
 import { Quote } from '../models/Quote';
-import { CustomError } from '../utils/CustomError';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2024-04-10' as Stripe.LatestApiVersion,
+});
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 const router = express.Router();
 
-router.post('/', express.raw({type: 'application/json'}), async (req, res, next) => {
-  const sig = req.headers['stripe-signature'];
+// No need for bodyParser.raw() here since it's applied in app.ts
+router.post('/', async (req, res) => {
+  const sig = req.headers['stripe-signature'] as string;
 
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret);
+    event = stripe.webhooks.constructEvent(req.body as Buffer, sig, endpointSecret);
   } catch (err: any) {
-    return next(new CustomError(`Webhook Error: ${err.message}`, 400));
+    console.error('Webhook Error:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  console.log('Received Stripe webhook payload:', JSON.stringify(event, null, 2));
+
+  console.log('Received event:', event.type);
+
   // Handle the event
-  switch (event.type) {
-    case 'payment_intent.succeeded':
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await Quote.findOneAndUpdate(
-        { paymentIntentId: paymentIntent.id },
-        { paymentStatus: 'paid', status: 'paid' }
-      );
-      break;
-    case 'payment_intent.payment_failed':
-      const failedPaymentIntent = event.data.object as Stripe.PaymentIntent;
-      await Quote.findOneAndUpdate(
-        { paymentIntentId: failedPaymentIntent.id },
-        { paymentStatus: 'failed' }
-      );
-      break;
-    // ... handle other event types
-    default:
-      console.log(`Unhandled event type ${event.type}`);
+  try {
+    switch (event.type) {
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log('PaymentIntent was successful!', paymentIntent.id);
+        
+        // Find the quote by paymentIntentId or quoteId from metadata
+        let quote = await Quote.findOne({ paymentIntentId: paymentIntent.id });
+        
+        if (!quote && paymentIntent.metadata && paymentIntent.metadata.quoteId) {
+          quote = await Quote.findById(paymentIntent.metadata.quoteId);
+        }
+        
+        // If still not found, try to find by totalUpfront amount
+        if (!quote) {
+          const totalUpfront = paymentIntent.amount / 100; // Convert cents to dollars
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const potentialQuotes = await Quote.find({
+            'pricingCalculations.totalUpfront': totalUpfront,
+            createdAt: { $gte: oneDayAgo }
+          });
+          
+          console.log(`Found ${potentialQuotes.length} quotes with totalUpfront amount: $${totalUpfront}`);
+          
+          if (potentialQuotes.length === 1) {
+            quote = potentialQuotes[0];
+          } else if (potentialQuotes.length > 1) {
+            console.warn(`Multiple quotes found with totalUpfront amount: $${totalUpfront}. Manual check required.`);
+            // You might want to implement some logic here to choose the most likely quote,
+            // or flag this for manual review
+          }
+        }
+        
+        if (!quote) {
+          console.error('Quote not found for paymentIntentId:', paymentIntent.id);
+          console.error('Metadata:', JSON.stringify(paymentIntent.metadata, null, 2));
+          console.error('Amount:', paymentIntent.amount);
+          
+          // Log all quotes in the database
+          const allQuotes = await Quote.find({});
+          console.log('All quotes in database:', JSON.stringify(allQuotes, null, 2));
+          
+          return res.status(404).send('Quote not found');
+        } else {
+          // Update quote status
+          quote.paymentStatus = 'paid';
+          quote.status = 'paid';
+          quote.paymentIntentId = paymentIntent.id; // Ensure this is set
+          await quote.save();
+        }
+        
+        console.log('Quote updated successfully:', quote._id);
+        break;
+      }
+      case 'payment_intent.payment_failed': {
+        const failedPaymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log('PaymentIntent failed!', failedPaymentIntent.id);
+        await Quote.findOneAndUpdate(
+          { paymentIntentId: failedPaymentIntent.id },
+          { paymentStatus: 'failed' }
+        );
+        break;
+      }
+      case 'payment_intent.canceled': {
+        const canceledPaymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log('PaymentIntent canceled!', canceledPaymentIntent.id);
+        await Quote.findOneAndUpdate(
+          { paymentIntentId: canceledPaymentIntent.id },
+          { paymentStatus: 'canceled', status: 'canceled' }
+        );
+        break;
+      }
+      case 'payment_intent.requires_action': {
+        const requiresActionIntent = event.data.object as Stripe.PaymentIntent;
+        console.log('PaymentIntent requires action!', requiresActionIntent.id);
+        // Handle any additional steps required
+        break;
+      }
+      case 'charge.succeeded': {
+        const chargeSucceeded = event.data.object as Stripe.Charge;
+        console.log('Charge succeeded!', chargeSucceeded.id);
+        // Optionally update the Quote or perform other actions
+        break;
+      }
+      case 'charge.failed': {
+        const chargeFailed = event.data.object as Stripe.Charge;
+        console.log('Charge failed!', chargeFailed.id);
+        // Optionally update the Quote or perform other actions
+        break;
+      }
+      case 'charge.refunded': {
+        const chargeRefunded = event.data.object as Stripe.Charge;
+        console.log('Charge refunded!', chargeRefunded.id);
+        await Quote.findOneAndUpdate(
+          { paymentIntentId: chargeRefunded.payment_intent as string },
+          { paymentStatus: 'refunded', status: 'refunded' }
+        );
+        break;
+      }
+      case 'charge.dispute.created': {
+        const dispute = event.data.object as Stripe.Dispute;
+        console.log('Charge dispute created!', dispute.id);
+        await Quote.findOneAndUpdate(
+          { paymentIntentId: dispute.payment_intent as string },
+          { paymentStatus: 'disputed', status: 'disputed' }
+        );
+        break;
+      }
+      case 'invoice.finalized': {
+        const invoiceFinalized = event.data.object as Stripe.Invoice;
+        console.log('Invoice finalized!', invoiceFinalized.id);
+        // Optionally handle invoice finalization
+        break;
+      }
+      case 'invoice.payment_succeeded': {
+        const invoicePaymentSucceeded = event.data.object as Stripe.Invoice;
+        console.log('Invoice payment succeeded!', invoicePaymentSucceeded.id);
+        // Optionally handle successful invoice payment
+        break;
+      }
+      case 'invoice.payment_failed': {
+        const invoicePaymentFailed = event.data.object as Stripe.Invoice;
+        console.log('Invoice payment failed!', invoicePaymentFailed.id);
+        // Optionally handle failed invoice payment
+        break;
+      }
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+  } catch (error) {
+    console.error('Error processing webhook:', error);
+    return res.status(500).send('Error processing webhook');
   }
 
   // Return a response to acknowledge receipt of the event
-  res.json({received: true});
+  res.json({ received: true });
 });
 
 export default router;
@@ -1404,6 +1543,27 @@ router.get('/test-esignature', async (req: Request, res: Response, next: NextFun
     res.json(response);
   } catch (error: any) {
     next(new CustomError(error.message, error.statusCode || 500));
+  }
+});
+
+// Add this new route for creating payment link
+router.post('/:id/create-payment', async (req, res) => {
+  const quoteId = req.params.id;
+  console.log('Creating payment link for quote:', quoteId);
+
+  const quote = await Quote.findById(quoteId);
+  if (!quote) {
+    console.log('Quote not found:', quoteId);
+    return res.status(404).json({ error: 'Quote not found' });
+  }
+
+  try {
+    const paymentLink = await generateStripePaymentLink(quote);
+    console.log('Payment link generated:', paymentLink);
+    res.json({ paymentLink });
+  } catch (error) {
+    console.error('Error generating payment link:', error);
+    res.status(500).json({ error: 'Failed to generate payment link' });
   }
 });
 
@@ -1881,8 +2041,14 @@ import { calculatePricing } from '../services/pricingService';
 
 const router = Router();
 
+interface RampComponent {
+  type: 'ramp' | 'landing';
+  length: number;
+  quantity: number;
+}
+
 interface RampConfiguration {
-  components: string[];
+  components: RampComponent[];
   totalLength: number;
 }
 
@@ -1981,7 +2147,7 @@ import { Schema, model, Document, Types } from 'mongoose';
 interface RampComponent {
   type: 'ramp' | 'landing';
   length: number;
-  width?: number;
+  quantity: number;
 }
 
 interface RampConfiguration {
@@ -1989,26 +2155,25 @@ interface RampConfiguration {
   totalLength: number;
 }
 
-interface PricingCalculations {
-  deliveryFee: number;
-  installFee: number;
-  monthlyRentalRate: number;
-  totalUpfront: number; // Changed from totalAmount
-  distance: number;
-  warehouseAddress: string; // Changed from companyAddress
-}
-
 export interface IQuote extends Document {
+  _id: Types.ObjectId; // Add this line
   customerId: Types.ObjectId;
   customerName: string;
   rentalRequestId?: Types.ObjectId;
   rampConfiguration: RampConfiguration;
-  pricingCalculations: PricingCalculations;
+  pricingCalculations: {
+    deliveryFee: number;
+    installFee: number;
+    monthlyRentalRate: number;
+    totalUpfront: number;
+    distance: number;
+    warehouseAddress: string;
+  };
   status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
   createdAt: Date;
-  manualSignature?: string; // Add this line
-  signatureDate?: Date; // Add this line
-  installAddress: string; // Add this line
+  manualSignature?: string;
+  signatureDate?: Date;
+  installAddress: string;
   paymentStatus: 'pending' | 'processing' | 'paid' | 'failed';
   paymentIntentId?: string;
   agreementStatus: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
@@ -2023,7 +2188,7 @@ const quoteSchema = new Schema<IQuote>({
     components: [{
       type: { type: String, enum: ['ramp', 'landing'], required: true },
       length: { type: Number, required: true },
-      width: { type: Number, required: false }
+      quantity: { type: Number, required: true }
     }],
     totalLength: { type: Number, required: true }
   },
@@ -2031,9 +2196,9 @@ const quoteSchema = new Schema<IQuote>({
     deliveryFee: { type: Number, required: true },
     installFee: { type: Number, required: true },
     monthlyRentalRate: { type: Number, required: true },
-    totalUpfront: { type: Number, required: true }, // Changed from totalAmount
+    totalUpfront: { type: Number, required: true },
     distance: { type: Number, required: true },
-    warehouseAddress: { type: String, required: true } // Changed from companyAddress
+    warehouseAddress: { type: String, required: true }
   },
   status: { 
     type: String, 
@@ -2041,9 +2206,9 @@ const quoteSchema = new Schema<IQuote>({
     default: 'draft' 
   },
   createdAt: { type: Date, default: Date.now },
-  manualSignature: { type: String, required: false }, // Add this line
-  signatureDate: { type: Date, required: false }, // Added comma here
-  installAddress: { type: String, required: true }, // Add comma here
+  manualSignature: { type: String, required: false },
+  signatureDate: { type: Date, required: false },
+  installAddress: { type: String, required: true },
   paymentStatus: { 
     type: String, 
     enum: ['pending', 'processing', 'paid', 'failed'], 
@@ -2201,71 +2366,5 @@ const connectToDatabase = async () => {
 };
 
 export default connectToDatabase;
-```
-
-# src/__tests__/testDbConnection.ts
-
-```ts
-// src/__tests__/testDbConnection.ts
-import mongoose from 'mongoose';
-
-mongoose
-  .connect('mongodb+srv://ty:ReGGie.02@samedayramps-db.ulmux.mongodb.net/?retryWrites=true&w=majority&appName=samedayramps-db')
-  .then(() => {
-    console.log('Connected to MongoDB');
-    mongoose.connection.close();
-  })
-  .catch((error) => {
-    console.error('Failed to connect to MongoDB:', error);
-  });
-```
-
-# src/__tests__/setupTests.ts
-
-```ts
-// src/__tests__/setupTests.ts
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-
-dotenv.config({ path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env' });
-
-beforeAll(async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI!, {
-      dbName: 'test_db',
-    });
-
-    await new Promise<void>((resolve, reject) => {
-      mongoose.connection.once('connected', () => {
-        console.log('Mongoose connection is open');
-        resolve();
-      });
-      mongoose.connection.on('error', (err) => {
-        console.error('Mongoose connection error:', err);
-        reject(err);
-      });
-    });
-  } catch (error) {
-    console.error('Failed to connect to MongoDB:', error);
-    throw error;
-  }
-});
-
-afterAll(async () => {
-  await mongoose.connection.close();
-});
-
-beforeEach(async () => {
-  const db = mongoose.connection.db;
-  if (db) {
-    // Clear the database before each test
-    const collections = await db.collections();
-    for (const collection of collections) {
-      await collection.deleteMany({});
-    }
-  } else {
-    throw new Error('Database connection not established');
-  }
-});
 ```
 

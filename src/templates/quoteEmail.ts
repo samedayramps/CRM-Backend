@@ -3,10 +3,10 @@ import { ICustomer } from '../models/Customer';
 import { Types } from 'mongoose';
 import { generateAcceptanceToken } from '../utils/tokenUtils';
 
-export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): string {
+export function generateQuoteEmailTemplate(quote: IQuote): string {
   const customerName = getCustomerName(quote);
   const acceptanceToken = quote._id ? generateAcceptanceToken(quote._id.toString()) : '';
-  const acceptanceUrl = `${acceptUrl}?token=${acceptanceToken}`;
+  const acceptanceUrl = `${process.env.BACKEND_URL}/api/quotes/${quote._id}/accept?token=${acceptanceToken}`;
 
   const componentListHtml = quote.rampConfiguration.components.map(component => `
     <li style="margin-bottom: 5px;">${component.quantity} x ${component.length}-foot ${component.type}</li>

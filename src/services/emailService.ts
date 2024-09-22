@@ -4,6 +4,7 @@ import { CustomError } from '../utils/CustomError';
 import { generateQuoteEmailTemplate } from '../templates/quoteEmail';
 import { Customer, ICustomer } from '../models/Customer';
 import { Types } from 'mongoose';
+import { generateFollowUpEmailTemplate } from '../templates/followUpEmail';
 
 // Configure the email transporter
 const transporter = nodemailer.createTransport({
@@ -48,7 +49,7 @@ export async function sendQuoteEmail(quote: IQuote): Promise<void> {
     from: process.env.EMAIL_USER,
     to: customerEmail,
     subject: 'Your Quote from Same Day Ramps',
-    html: generateQuoteEmailTemplate(populatedQuote, acceptUrl),
+    html: generateQuoteEmailTemplate(populatedQuote),
   };
 
   try {
@@ -64,36 +65,19 @@ export async function sendFollowUpEmail(quote: IQuote, paymentLink: string, sign
     throw new CustomError('Invalid customer data in quote', 400);
   }
 
-  let customerEmail: string;
-  let customerName: string;
+  const customer = quote.customerId instanceof Types.ObjectId
+    ? await Customer.findById(quote.customerId)
+    : quote.customerId as ICustomer;
 
-  if (quote.customerId instanceof Types.ObjectId) {
-    const customer = await Customer.findById(quote.customerId);
-    if (!customer) {
-      throw new CustomError('Customer not found', 404);
-    }
-    customerEmail = customer.email;
-    customerName = `${customer.firstName} ${customer.lastName}`;
-  } else {
-    const customer = quote.customerId as ICustomer;
-    customerEmail = customer.email;
-    customerName = `${customer.firstName} ${customer.lastName}`;
+  if (!customer) {
+    throw new CustomError('Customer not found', 404);
   }
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
-    to: customerEmail,
+    to: customer.email,
     subject: 'Next Steps for Your Same Day Ramps Quote',
-    html: `
-      <h1>Thank you for accepting your quote!</h1>
-      <p>Dear ${customerName},</p>
-      <p>To complete your order, please follow these steps:</p>
-      <ol>
-        <li><a href="${paymentLink}">Make your payment</a></li>
-        <li><a href="${signatureLink}">Sign the agreement</a></li>
-      </ol>
-      <p>If you have any questions, please don't hesitate to contact us.</p>
-    `,
+    html: await generateFollowUpEmailTemplate(quote, paymentLink, signatureLink),
   };
 
   try {
