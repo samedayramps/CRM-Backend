@@ -4,7 +4,7 @@ import { Schema, model, Document, Types } from 'mongoose';
 interface RampComponent {
   type: 'ramp' | 'landing';
   length: number;
-  width?: number;
+  quantity: number;
 }
 
 interface RampConfiguration {
@@ -12,26 +12,24 @@ interface RampConfiguration {
   totalLength: number;
 }
 
-interface PricingCalculations {
-  deliveryFee: number;
-  installFee: number;
-  monthlyRentalRate: number;
-  totalUpfront: number; // Changed from totalAmount
-  distance: number;
-  warehouseAddress: string; // Changed from companyAddress
-}
-
 export interface IQuote extends Document {
   customerId: Types.ObjectId;
   customerName: string;
   rentalRequestId?: Types.ObjectId;
   rampConfiguration: RampConfiguration;
-  pricingCalculations: PricingCalculations;
+  pricingCalculations: {
+    deliveryFee: number;
+    installFee: number;
+    monthlyRentalRate: number;
+    totalUpfront: number;
+    distance: number;
+    warehouseAddress: string;
+  };
   status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
   createdAt: Date;
-  manualSignature?: string; // Add this line
-  signatureDate?: Date; // Add this line
-  installAddress: string; // Add this line
+  manualSignature?: string;
+  signatureDate?: Date;
+  installAddress: string;
   paymentStatus: 'pending' | 'processing' | 'paid' | 'failed';
   paymentIntentId?: string;
   agreementStatus: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
@@ -46,7 +44,7 @@ const quoteSchema = new Schema<IQuote>({
     components: [{
       type: { type: String, enum: ['ramp', 'landing'], required: true },
       length: { type: Number, required: true },
-      width: { type: Number, required: false }
+      quantity: { type: Number, required: true }
     }],
     totalLength: { type: Number, required: true }
   },
@@ -54,9 +52,9 @@ const quoteSchema = new Schema<IQuote>({
     deliveryFee: { type: Number, required: true },
     installFee: { type: Number, required: true },
     monthlyRentalRate: { type: Number, required: true },
-    totalUpfront: { type: Number, required: true }, // Changed from totalAmount
+    totalUpfront: { type: Number, required: true },
     distance: { type: Number, required: true },
-    warehouseAddress: { type: String, required: true } // Changed from companyAddress
+    warehouseAddress: { type: String, required: true }
   },
   status: { 
     type: String, 
@@ -64,9 +62,9 @@ const quoteSchema = new Schema<IQuote>({
     default: 'draft' 
   },
   createdAt: { type: Date, default: Date.now },
-  manualSignature: { type: String, required: false }, // Add this line
-  signatureDate: { type: Date, required: false }, // Added comma here
-  installAddress: { type: String, required: true }, // Add comma here
+  manualSignature: { type: String, required: false },
+  signatureDate: { type: Date, required: false },
+  installAddress: { type: String, required: true },
   paymentStatus: { 
     type: String, 
     enum: ['pending', 'processing', 'paid', 'failed'], 

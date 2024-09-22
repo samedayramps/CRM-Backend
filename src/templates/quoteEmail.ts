@@ -8,6 +8,11 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
   const acceptanceToken = quote._id ? generateAcceptanceToken(quote._id.toString()) : '';
   const acceptanceUrl = `${acceptUrl}?token=${acceptanceToken}`;
 
+  // Generate the component list HTML
+  const componentListHtml = quote.rampConfiguration.components.map(component => `
+    <li>${component.quantity} x ${component.type} (${component.length} feet)</li>
+  `).join('');
+
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -55,6 +60,11 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
         <p>Total Upfront Cost: $${quote.pricingCalculations.totalUpfront.toFixed(2)} (Includes delivery, installation, and future removal)</p>
         <p>Monthly Rental: $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</p>
       </div>
+
+      <h3>Ramp Components:</h3>
+      <ul>
+        ${componentListHtml}
+      </ul>
 
       <h3>Ramp Details:</h3>
       <ul>
