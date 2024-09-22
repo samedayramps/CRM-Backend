@@ -37,14 +37,14 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
     </ul>
   </div>
 
-  <div style="background-color: #fff9c4; border: 1px solid #fff59d; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+  <div style="background-color: #fafde5; border: 1px solid #ebfd2a; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
     <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Total Upfront Cost: $${quote.pricingCalculations.totalUpfront.toFixed(2)}</p>
     <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Monthly Rental: $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</p>
     <p style="font-size: 14px; font-style: italic; margin-bottom: 15px;">Upfront cost includes delivery, installation, and future removal</p>
   </div>
 
   <div style="text-align: center; margin-bottom: 30px;">
-    <a href="${acceptanceUrl}" style="display: inline-block; background-color: #fdd835; color: #000000; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 18px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">Accept Quote</a>
+    <a href="${acceptanceUrl}" style="display: inline-block; background-color: #ebfd2a; color: #000000; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 18px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">Accept Quote</a>
   </div>
 
   <div style="margin-bottom: 20px;">
