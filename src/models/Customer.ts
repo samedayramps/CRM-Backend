@@ -11,7 +11,7 @@ export interface ICustomer extends Document {
   notes?: string; // New field for additional customer information
   // Removed: preferredContactMethod?: string; // New field for communication preference
   createdAt: Date;
-  updatedAt: Date; // New field to track last update
+  updatedAt: Date; // Ensure this is included
 }
 
 const customerSchema = new Schema<ICustomer>({
