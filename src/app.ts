@@ -46,13 +46,13 @@ app.use(cors({
 
 console.log('CORS middleware added');
 
-// Parse JSON requests (Globally except for Stripe webhook route)
+// Global middleware for JSON requests
 app.use(express.json());
 
 // Handle OPTIONS requests
 app.options('*', cors());
 
-// Routes
+// Non-webhook routes
 app.use('/api/rental-requests', rentalRequestsRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/quotes', quotesRouter);
@@ -61,10 +61,10 @@ app.use('/api/calculate-pricing', calculatePricingRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/manual-signature', manualSignatureRouter);
 
-// Webhook route for Stripe must bypass express.json() and use express.raw()
+// Webhook route for Stripe (uses raw body)
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhooksRouter);
 
-// Webhook route for eSignatures can use normal body parsing
+// Webhook route for eSignatures (can use normal JSON parsing)
 app.use('/api/webhooks/esignature', esignatureWebhooksRouter);
 
 // Error handling middleware (should be last)

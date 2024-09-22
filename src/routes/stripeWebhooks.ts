@@ -1,8 +1,6 @@
 import express from 'express';
 import { Quote } from '../models/Quote';
-import { CustomError } from '../utils/CustomError';
 import Stripe from 'stripe';
-import bodyParser from 'body-parser';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10' as Stripe.LatestApiVersion,
@@ -11,10 +9,9 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 const router = express.Router();
 
-// Apply the raw body parser specifically for this route
+// No need for bodyParser.raw() here since it's applied in app.ts
 router.post(
   '/',
-  bodyParser.raw({ type: 'application/json' }), // Raw body required for Stripe
   async (req, res) => {
     const sig = req.headers['stripe-signature'];
 
