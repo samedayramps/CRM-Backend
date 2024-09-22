@@ -59,7 +59,7 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
         .accept-button {
           display: inline-block;
           background-color: #ebfd2a;
-          color: #333;
+          color: #000000;
           padding: 15px 30px;
           text-decoration: none;
           border-radius: 5px;
@@ -80,12 +80,6 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
       
       <p>Thanks for choosing Same Day Ramps. Here's a breakdown of your quote:</p>
       
-      <div class="quote-summary">
-        <p><strong>Total Upfront Cost:</strong> $${quote.pricingCalculations.totalUpfront.toFixed(2)}</p>
-        <p><strong>Monthly Rental:</strong> $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</p>
-        <p><em>Upfront cost includes delivery, installation, and future removal</em></p>
-      </div>
-
       <div class="ramp-details">
         <h3>Your Ramp Configuration:</h3>
         <ul>
@@ -93,19 +87,14 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
           ${componentListHtml}
           <li>Width: 3 feet with handrails on both sides</li>
           <li>Material: 100% solid aluminum, supports up to 1000 pounds</li>
-          <li>Installation: Takes 2-5 hours, depending on configuration</li>
         </ul>
       </div>
 
-      <a href="${acceptanceUrl}" class="accept-button">Accept Quote</a>
-
-      <div class="section">
-        <h3>What you should know:</h3>
-        <ul>
-          <li>No minimum rental period - rent for as long as you need</li>
-          <li>When you're done, we'll remove the ramp within 7 days at no extra cost</li>
-          <li>The upfront cost covers delivery, installation, and future removal</li>
-        </ul>
+      <div class="quote-summary">
+        <p><strong>Total Upfront Cost:</strong> $${quote.pricingCalculations.totalUpfront.toFixed(2)}</p>
+        <p><strong>Monthly Rental:</strong> $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</p>
+        <p><em>Upfront cost includes delivery, installation, and future removal</em></p>
+        <a href="${acceptanceUrl}" class="accept-button">Accept Quote</a>
       </div>
 
       <div class="section">
@@ -115,6 +104,16 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
           <li>Pay the upfront cost and sign the rental agreement.</li>
           <li>We'll deliver the ramp and install it at no hassle to you.</li>
         </ol>
+      </div>
+
+      <div class="section">
+        <h3>What you should know:</h3>
+        <ul>
+          <li>No minimum rental period - rent for as long as you need</li>
+          <li>When you're done, we'll remove the ramp within 7 days at no extra cost</li>
+          <li>The upfront cost covers delivery, installation, and future removal</li>
+          <li>Installation takes 2-5 hours, depending on configuration</li>
+        </ul>
       </div>
 
       <div class="section">
