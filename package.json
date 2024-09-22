@@ -6,7 +6,7 @@
     "start": "node dist/server.js",
     "build": "tsc",
     "dev": "ts-node-dev --respawn src/server.ts",
-    "postinstall": "npm run build",
+    "postinstall": "npm install typescript && npm run build",
     "test": "NODE_ENV=test jest",
     "seed:pricing-variables": "ts-node src/scripts/seedPricingVariables.ts",
     "preinstall": "npm cache clean --force"
@@ -41,7 +41,8 @@
     "nodemailer": "^6.9.15",
     "stripe": "^16.12.0",
     "winston": "^3.14.2",
-    "@types/winston": "^2.4.4"
+    "@types/winston": "^2.4.4",
+    "typescript": "^5.6.2"
   },
   "engines": {
     "node": "20.x"
