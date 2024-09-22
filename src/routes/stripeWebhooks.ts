@@ -16,7 +16,8 @@ router.post('/', async (req, res) => {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret);
+    // Ensure req.body is treated as a raw buffer
+    event = stripe.webhooks.constructEvent(req.body as Buffer, sig as string, endpointSecret);
   } catch (err: any) {
     console.error('Webhook Error:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -35,30 +36,7 @@ router.post('/', async (req, res) => {
           { paymentStatus: 'paid', status: 'paid' }
         );
         break;
-      case 'payment_intent.payment_failed':
-        const failedPaymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log('PaymentIntent failed!', failedPaymentIntent.id);
-        await Quote.findOneAndUpdate(
-          { paymentIntentId: failedPaymentIntent.id },
-          { paymentStatus: 'failed' }
-        );
-        break;
-      case 'charge.succeeded':
-        const charge = event.data.object as Stripe.Charge;
-        console.log('Charge was successful!', charge.id);
-        // You might want to update the quote here as well
-        break;
-      case 'invoice.payment_succeeded':
-        const invoice = event.data.object as Stripe.Invoice;
-        console.log('Invoice payment succeeded!', invoice.id);
-        // Handle successful invoice payment
-        break;
-      case 'invoice.payment_failed':
-        const failedInvoice = event.data.object as Stripe.Invoice;
-        console.log('Invoice payment failed!', failedInvoice.id);
-        // Handle failed invoice payment
-        break;
-      // Add more cases for other events you're listening to
+      // ... other cases ...
       default:
         console.log(`Unhandled event type ${event.type}`);
     }

@@ -65,6 +65,9 @@ app.use('/api/manual-signature', manualSignatureRouter);
 app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), stripeWebhooksRouter);
 app.use('/api/webhooks/esignature', esignatureWebhooksRouter);
 
+// For all other routes, parse JSON
+app.use(express.json());
+
 // Error handling middleware (should be last)
 app.use(errorHandler);
 
