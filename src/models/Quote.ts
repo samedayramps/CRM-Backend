@@ -13,6 +13,7 @@ interface RampConfiguration {
 }
 
 export interface IQuote extends Document {
+  _id: Types.ObjectId; // Add this line
   customerId: Types.ObjectId;
   customerName: string;
   rentalRequestId?: Types.ObjectId;

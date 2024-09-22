@@ -2,6 +2,7 @@
 import express from 'express';
 import { Quote } from '../models/Quote';
 import Stripe from 'stripe';
+import { logger } from '../utils/logger';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10' as Stripe.LatestApiVersion,
@@ -17,25 +18,35 @@ router.post('/', async (req, res) => {
   let event: Stripe.Event;
 
   try {
-    // Ensure req.body is treated as a raw buffer
     event = stripe.webhooks.constructEvent(req.body as Buffer, sig, endpointSecret);
   } catch (err: any) {
-    console.error('Webhook Error:', err.message);
+    logger.error('Webhook Error:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  console.log('Received event:', event.type);
+  logger.info('Received event:', event.type);
 
   // Handle the event
   try {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log('PaymentIntent was successful!', paymentIntent.id);
-        await Quote.findOneAndUpdate(
-          { paymentIntentId: paymentIntent.id },
-          { paymentStatus: 'paid', status: 'paid' }
-        );
+        logger.info('PaymentIntent was successful!', paymentIntent.id);
+        
+        // Find the quote by paymentIntentId
+        const quote = await Quote.findOne({ paymentIntentId: paymentIntent.id });
+        
+        if (!quote) {
+          logger.error('Quote not found for paymentIntentId:', paymentIntent.id);
+          return res.status(404).send('Quote not found');
+        }
+        
+        // Update quote status
+        quote.paymentStatus = 'paid';
+        quote.status = 'paid';
+        await quote.save();
+        
+        logger.info('Quote updated successfully:', quote._id);
         break;
       }
       case 'payment_intent.payment_failed': {
@@ -114,7 +125,7 @@ router.post('/', async (req, res) => {
         console.log(`Unhandled event type ${event.type}`);
     }
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    logger.error('Error processing webhook:', error);
     return res.status(500).send('Error processing webhook');
   }
 
