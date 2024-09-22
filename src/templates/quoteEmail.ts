@@ -23,13 +23,17 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
         body {
           font-family: Arial, sans-serif;
           line-height: 1.6;
-          color: #333;
+          color: #000000;  // Changed to black
           max-width: 600px;
           margin: 0 auto;
           padding: 20px;
         }
         h1, h2, h3 { 
           color: #2c3e50; 
+        }
+        a {
+          color: #0000FF;  // Set links to blue
+          text-decoration: none;  // Remove underline from links
         }
         .quote-summary {
           background-color: #f8f9fa;
@@ -57,16 +61,18 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
           margin-bottom: 10px;
         }
         .accept-button {
-          display: inline-block;
-          background-color: #ebfd2a;
-          color: #000000;
-          padding: 15px 30px;
-          text-decoration: none;
-          border-radius: 5px;
-          font-weight: bold;
-          font-size: 18px;
-          text-align: center;
-          margin-top: 20px;
+          display: inline-block !important;
+          background-color: #ebfd2a !important;
+          color: #000000 !important;
+          padding: 15px 30px !important;
+          text-decoration: none !important;
+          border-radius: 5px !important;
+          font-weight: bold !important;
+          font-size: 18px !important;
+          text-align: center !important;
+          margin-top: 20px !important;
+          -webkit-text-size-adjust: none !important;
+          -webkit-font-smoothing: antialiased !important;
         }
         .section {
           margin-bottom: 30px;
@@ -94,7 +100,7 @@ export function generateQuoteEmailTemplate(quote: IQuote, acceptUrl: string): st
         <p><strong>Total Upfront Cost:</strong> $${quote.pricingCalculations.totalUpfront.toFixed(2)}</p>
         <p><strong>Monthly Rental:</strong> $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</p>
         <p><em>Upfront cost includes delivery, installation, and future removal</em></p>
-        <a href="${acceptanceUrl}" class="accept-button">Accept Quote</a>
+        <a href="${acceptanceUrl}" class="accept-button" style="background-color: #ebfd2a !important; color: #000000 !important;">Accept Quote</a>
       </div>
 
       <div class="section">
