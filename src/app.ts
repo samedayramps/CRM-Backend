@@ -46,6 +46,7 @@ app.use(cors({
 
 console.log('CORS middleware added');
 
+// Parse JSON requests
 app.use(express.json());
 
 // Handle OPTIONS requests
@@ -60,10 +61,9 @@ app.use('/api/calculate-pricing', calculatePricingRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/manual-signature', manualSignatureRouter);
 
-// New webhook routes
-app.use('/api/webhooks/stripe', stripeWebhooksRouter);
-// Update this line to match the incoming webhook URL
-app.use('/api/signatures/webhook', esignatureWebhooksRouter);
+// Webhook routes
+app.use('/api/webhooks/stripe', express.raw({type: 'application/json'}), stripeWebhooksRouter);
+app.use('/api/webhooks/esignature', esignatureWebhooksRouter);
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
