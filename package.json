@@ -6,29 +6,15 @@
     "start": "node dist/server.js",
     "build": "tsc",
     "dev": "ts-node-dev --respawn src/server.ts",
-    "postinstall": "npm install typescript && npm run build",
+    "postinstall": "npm run build",
+    "heroku-postbuild": "tsc",
     "test": "NODE_ENV=test jest",
-    "seed:pricing-variables": "ts-node src/scripts/seedPricingVariables.ts",
-    "preinstall": "npm cache clean --force"
+    "seed:pricing-variables": "ts-node src/scripts/seedPricingVariables.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
-  "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/jest": "^29.5.13",
-    "@types/node": "^22.5.5",
-    "@types/nodemailer": "^6.4.16",
-    "@types/supertest": "^6.0.2",
-    "jest": "^29.7.0",
-    "supertest": "^7.0.0",
-    "ts-jest": "^29.2.5",
-    "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.6.2"
-  },
   "dependencies": {
     "@types/stripe": "^8.0.417",
     "axios": "^1.7.7",
@@ -43,6 +29,19 @@
     "winston": "^3.14.2",
     "@types/winston": "^2.4.4",
     "typescript": "^5.6.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.13",
+    "@types/node": "^22.5.5",
+    "@types/nodemailer": "^6.4.16",
+    "@types/supertest": "^6.0.2",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0"
   },
   "engines": {
     "node": "20.x"
