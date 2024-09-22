@@ -1,3 +1,4 @@
+// src/routes/stripeWebhooks.ts
 import express from 'express';
 import { Quote } from '../models/Quote';
 import Stripe from 'stripe';
@@ -11,13 +12,13 @@ const router = express.Router();
 
 // No need for bodyParser.raw() here since it's applied in app.ts
 router.post('/', async (req, res) => {
-  const sig = req.headers['stripe-signature'];
+  const sig = req.headers['stripe-signature'] as string;
 
   let event: Stripe.Event;
 
   try {
-    // **Ensure req.body is treated as a raw buffer**
-    event = stripe.webhooks.constructEvent(req.body as Buffer, sig as string, endpointSecret);
+    // Ensure req.body is treated as a raw buffer
+    event = stripe.webhooks.constructEvent(req.body as Buffer, sig, endpointSecret);
   } catch (err: any) {
     console.error('Webhook Error:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -28,7 +29,7 @@ router.post('/', async (req, res) => {
   // Handle the event
   try {
     switch (event.type) {
-      case 'payment_intent.succeeded':
+      case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         console.log('PaymentIntent was successful!', paymentIntent.id);
         await Quote.findOneAndUpdate(
@@ -36,7 +37,8 @@ router.post('/', async (req, res) => {
           { paymentStatus: 'paid', status: 'paid' }
         );
         break;
-      case 'payment_intent.payment_failed':
+      }
+      case 'payment_intent.payment_failed': {
         const failedPaymentIntent = event.data.object as Stripe.PaymentIntent;
         console.log('PaymentIntent failed!', failedPaymentIntent.id);
         await Quote.findOneAndUpdate(
@@ -44,7 +46,70 @@ router.post('/', async (req, res) => {
           { paymentStatus: 'failed' }
         );
         break;
-      // ... handle other event types ...
+      }
+      case 'payment_intent.canceled': {
+        const canceledPaymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log('PaymentIntent canceled!', canceledPaymentIntent.id);
+        await Quote.findOneAndUpdate(
+          { paymentIntentId: canceledPaymentIntent.id },
+          { paymentStatus: 'canceled', status: 'canceled' }
+        );
+        break;
+      }
+      case 'payment_intent.requires_action': {
+        const requiresActionIntent = event.data.object as Stripe.PaymentIntent;
+        console.log('PaymentIntent requires action!', requiresActionIntent.id);
+        // Handle any additional steps required
+        break;
+      }
+      case 'charge.succeeded': {
+        const chargeSucceeded = event.data.object as Stripe.Charge;
+        console.log('Charge succeeded!', chargeSucceeded.id);
+        // Optionally update the Quote or perform other actions
+        break;
+      }
+      case 'charge.failed': {
+        const chargeFailed = event.data.object as Stripe.Charge;
+        console.log('Charge failed!', chargeFailed.id);
+        // Optionally update the Quote or perform other actions
+        break;
+      }
+      case 'charge.refunded': {
+        const chargeRefunded = event.data.object as Stripe.Charge;
+        console.log('Charge refunded!', chargeRefunded.id);
+        await Quote.findOneAndUpdate(
+          { paymentIntentId: chargeRefunded.payment_intent as string },
+          { paymentStatus: 'refunded', status: 'refunded' }
+        );
+        break;
+      }
+      case 'charge.dispute.created': {
+        const dispute = event.data.object as Stripe.Dispute;
+        console.log('Charge dispute created!', dispute.id);
+        await Quote.findOneAndUpdate(
+          { paymentIntentId: dispute.payment_intent as string },
+          { paymentStatus: 'disputed', status: 'disputed' }
+        );
+        break;
+      }
+      case 'invoice.finalized': {
+        const invoiceFinalized = event.data.object as Stripe.Invoice;
+        console.log('Invoice finalized!', invoiceFinalized.id);
+        // Optionally handle invoice finalization
+        break;
+      }
+      case 'invoice.payment_succeeded': {
+        const invoicePaymentSucceeded = event.data.object as Stripe.Invoice;
+        console.log('Invoice payment succeeded!', invoicePaymentSucceeded.id);
+        // Optionally handle successful invoice payment
+        break;
+      }
+      case 'invoice.payment_failed': {
+        const invoicePaymentFailed = event.data.object as Stripe.Invoice;
+        console.log('Invoice payment failed!', invoicePaymentFailed.id);
+        // Optionally handle failed invoice payment
+        break;
+      }
       default:
         console.log(`Unhandled event type ${event.type}`);
     }
