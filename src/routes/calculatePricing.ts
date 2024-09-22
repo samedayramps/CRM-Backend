@@ -5,8 +5,14 @@ import { calculatePricing } from '../services/pricingService';
 
 const router = Router();
 
+interface RampComponent {
+  type: 'ramp' | 'landing';
+  length: number;
+  quantity: number;
+}
+
 interface RampConfiguration {
-  components: string[];
+  components: RampComponent[];
   totalLength: number;
 }
 
