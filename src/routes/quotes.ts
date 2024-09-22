@@ -271,4 +271,25 @@ router.get('/test-esignature', async (req: Request, res: Response, next: NextFun
   }
 });
 
+// Add this new route for creating payment link
+router.post('/:id/create-payment', async (req, res) => {
+  const quoteId = req.params.id;
+  console.log('Creating payment link for quote:', quoteId);
+
+  const quote = await Quote.findById(quoteId);
+  if (!quote) {
+    console.log('Quote not found:', quoteId);
+    return res.status(404).json({ error: 'Quote not found' });
+  }
+
+  try {
+    const paymentLink = await generateStripePaymentLink(quote);
+    console.log('Payment link generated:', paymentLink);
+    res.json({ paymentLink });
+  } catch (error) {
+    console.error('Error generating payment link:', error);
+    res.status(500).json({ error: 'Failed to generate payment link' });
+  }
+});
+
 export default router;

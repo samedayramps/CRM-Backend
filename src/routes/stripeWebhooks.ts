@@ -41,17 +41,43 @@ router.post('/', async (req, res) => {
           quote = await Quote.findById(paymentIntent.metadata.quoteId);
         }
         
+        // If still not found, try to find by totalUpfront amount
+        if (!quote) {
+          const totalUpfront = paymentIntent.amount / 100; // Convert cents to dollars
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const potentialQuotes = await Quote.find({
+            'pricingCalculations.totalUpfront': totalUpfront,
+            createdAt: { $gte: oneDayAgo }
+          });
+          
+          console.log(`Found ${potentialQuotes.length} quotes with totalUpfront amount: $${totalUpfront}`);
+          
+          if (potentialQuotes.length === 1) {
+            quote = potentialQuotes[0];
+          } else if (potentialQuotes.length > 1) {
+            console.warn(`Multiple quotes found with totalUpfront amount: $${totalUpfront}. Manual check required.`);
+            // You might want to implement some logic here to choose the most likely quote,
+            // or flag this for manual review
+          }
+        }
+        
         if (!quote) {
           console.error('Quote not found for paymentIntentId:', paymentIntent.id);
           console.error('Metadata:', JSON.stringify(paymentIntent.metadata, null, 2));
+          console.error('Amount:', paymentIntent.amount);
+          
+          // Log all quotes in the database
+          const allQuotes = await Quote.find({});
+          console.log('All quotes in database:', JSON.stringify(allQuotes, null, 2));
+          
           return res.status(404).send('Quote not found');
+        } else {
+          // Update quote status
+          quote.paymentStatus = 'paid';
+          quote.status = 'paid';
+          quote.paymentIntentId = paymentIntent.id; // Ensure this is set
+          await quote.save();
         }
-        
-        // Update quote status
-        quote.paymentStatus = 'paid';
-        quote.status = 'paid';
-        quote.paymentIntentId = paymentIntent.id; // Ensure this is set
-        await quote.save();
         
         console.log('Quote updated successfully:', quote._id);
         break;

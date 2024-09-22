@@ -4,6 +4,8 @@ import { IQuote } from '../models/Quote';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
 
 export async function generateStripePaymentLink(quote: IQuote): Promise<string> {
+  console.log('Generating payment link for quote:', quote._id);
+  
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [
@@ -26,13 +28,14 @@ export async function generateStripePaymentLink(quote: IQuote): Promise<string> 
     },
   });
 
+  console.log('Stripe session created:', session.id);
+  console.log('Payment intent created:', session.payment_intent);
+
   // Save the payment intent ID to the quote
   quote.paymentIntentId = session.payment_intent as string;
   await quote.save();
 
-  console.log(`Payment intent ${quote.paymentIntentId} created for quote ${quote._id}`);
-  
-  // Add this line to log the entire quote object
+  console.log('Quote updated with payment intent ID:', quote.paymentIntentId);
   console.log('Updated quote:', JSON.stringify(quote, null, 2));
 
   return session.url!;
