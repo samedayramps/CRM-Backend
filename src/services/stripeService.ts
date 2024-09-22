@@ -1,6 +1,5 @@
 import Stripe from 'stripe';
 import { IQuote } from '../models/Quote';
-import { logger } from '../utils/logger';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
 
@@ -31,7 +30,7 @@ export async function generateStripePaymentLink(quote: IQuote): Promise<string> 
   quote.paymentIntentId = session.payment_intent as string;
   await quote.save();
 
-  logger.info(`Payment intent ${quote.paymentIntentId} created for quote ${quote._id}`);
+  console.log(`Payment intent ${quote.paymentIntentId} created for quote ${quote._id}`);
 
   return session.url!;
 }

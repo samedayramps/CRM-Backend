@@ -7,7 +7,6 @@
     "build": "tsc",
     "dev": "ts-node-dev --respawn src/server.ts",
     "postinstall": "npm run build",
-    "heroku-postbuild": "tsc",
     "test": "NODE_ENV=test jest",
     "seed:pricing-variables": "ts-node src/scripts/seedPricingVariables.ts"
   },
@@ -15,21 +14,6 @@
   "author": "",
   "license": "ISC",
   "description": "",
-  "dependencies": {
-    "@types/stripe": "^8.0.417",
-    "axios": "^1.7.7",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.0",
-    "express-rate-limit": "^7.4.0",
-    "express-validator": "^7.2.0",
-    "mongoose": "^8.6.3",
-    "nodemailer": "^6.9.15",
-    "stripe": "^16.12.0",
-    "winston": "^3.14.2",
-    "@types/winston": "^2.4.4",
-    "typescript": "^5.6.2"
-  },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
@@ -41,7 +25,20 @@
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0"
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.2"
+  },
+  "dependencies": {
+    "@types/stripe": "^8.0.417",
+    "axios": "^1.7.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "express-validator": "^7.2.0",
+    "mongoose": "^8.6.3",
+    "nodemailer": "^6.9.15",
+    "stripe": "^16.12.0"
   },
   "engines": {
     "node": "20.x"
