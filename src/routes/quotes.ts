@@ -12,6 +12,7 @@ import { generateStripePaymentLink } from '../services/stripeService';
 import { EsignatureService } from '../services/EsignatureService';
 import { IQuote } from '../models/Quote'; // Make sure to import IQuote
 import { Job } from '../models/Job';
+import { createJobFromQuote } from '../services/jobService'; // Add this line
 
 const router = express.Router();
 
@@ -277,6 +278,31 @@ router.post('/:id/create-payment', async (req, res) => {
   } catch (error) {
     console.error('Error generating payment link:', error);
     res.status(500).json({ error: 'Failed to generate payment link' });
+  }
+});
+
+router.post('/:id/create-job', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid quote ID', 400));
+    }
+
+    const quote = await Quote.findById(id).populate('customerId');
+    if (!quote) {
+      return next(new CustomError('Quote not found', 404));
+    }
+
+    if (quote.status !== 'accepted') {
+      return next(new CustomError('Cannot create job from unaccepted quote', 400));
+    }
+
+    const job = await createJobFromQuote(quote);
+
+    res.status(201).json(job);
+  } catch (error: any) {
+    next(new CustomError(error.message, error.statusCode || 500));
   }
 });
 
