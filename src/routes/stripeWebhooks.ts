@@ -23,6 +23,8 @@ router.post('/', async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  console.log('Received Stripe webhook payload:', JSON.stringify(event, null, 2));
+
   console.log('Received event:', event.type);
 
   // Handle the event
@@ -32,17 +34,23 @@ router.post('/', async (req, res) => {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         console.log('PaymentIntent was successful!', paymentIntent.id);
         
-        // Find the quote by paymentIntentId
-        const quote = await Quote.findOne({ paymentIntentId: paymentIntent.id });
+        // Find the quote by paymentIntentId or quoteId from metadata
+        let quote = await Quote.findOne({ paymentIntentId: paymentIntent.id });
+        
+        if (!quote && paymentIntent.metadata && paymentIntent.metadata.quoteId) {
+          quote = await Quote.findById(paymentIntent.metadata.quoteId);
+        }
         
         if (!quote) {
           console.error('Quote not found for paymentIntentId:', paymentIntent.id);
+          console.error('Metadata:', JSON.stringify(paymentIntent.metadata, null, 2));
           return res.status(404).send('Quote not found');
         }
         
         // Update quote status
         quote.paymentStatus = 'paid';
         quote.status = 'paid';
+        quote.paymentIntentId = paymentIntent.id; // Ensure this is set
         await quote.save();
         
         console.log('Quote updated successfully:', quote._id);

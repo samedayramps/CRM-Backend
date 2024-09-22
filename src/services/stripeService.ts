@@ -31,6 +31,9 @@ export async function generateStripePaymentLink(quote: IQuote): Promise<string> 
   await quote.save();
 
   console.log(`Payment intent ${quote.paymentIntentId} created for quote ${quote._id}`);
+  
+  // Add this line to log the entire quote object
+  console.log('Updated quote:', JSON.stringify(quote, null, 2));
 
   return session.url!;
 }
