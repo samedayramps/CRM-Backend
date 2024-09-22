@@ -46,6 +46,10 @@ app.use(cors({
 
 console.log('CORS middleware added');
 
+// **Move webhook routes before express.json()**
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhooksRouter);
+app.use('/api/webhooks/esignature', esignatureWebhooksRouter);
+
 // Global middleware for JSON requests
 app.use(express.json());
 
@@ -60,12 +64,6 @@ app.use('/api/pricing-variables', pricingVariablesRouter);
 app.use('/api/calculate-pricing', calculatePricingRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/manual-signature', manualSignatureRouter);
-
-// Webhook route for Stripe (uses raw body)
-app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhooksRouter);
-
-// Webhook route for eSignatures (can use normal JSON parsing)
-app.use('/api/webhooks/esignature', esignatureWebhooksRouter);
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
