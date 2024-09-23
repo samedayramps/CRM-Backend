@@ -27,13 +27,22 @@ console.log('Express app created');
 const allowedOrigins = [
   'https://form.samedayramps.com',
   'http://localhost:3001',
+  'https://localhost:3001', // Add this line
   'https://app.samedayramps.com',
   'https://samedayramps.netlify.app',
-  process.env.GOOGLE_REDIRECT_URI // Add this line
+  process.env.GOOGLE_REDIRECT_URI
 ];
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   credentials: true
 }));
 
