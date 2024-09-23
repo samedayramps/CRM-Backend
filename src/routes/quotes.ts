@@ -281,6 +281,7 @@ router.post('/:id/create-payment', async (req, res) => {
   }
 });
 
+// Add this new route
 router.post('/:id/create-job', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -289,13 +290,19 @@ router.post('/:id/create-job', async (req: Request, res: Response, next: NextFun
       return next(new CustomError('Invalid quote ID', 400));
     }
 
-    const quote = await Quote.findById(id).populate('customerId');
+    const quote = await Quote.findById(id);
     if (!quote) {
       return next(new CustomError('Quote not found', 404));
     }
 
-    if (quote.status !== 'accepted') {
-      return next(new CustomError('Cannot create job from unaccepted quote', 400));
+    // Validate that the quote is in an appropriate state for job creation
+    if (quote.status !== 'accepted' || quote.paymentStatus !== 'paid') {
+      return next(new CustomError('Quote is not in a valid state for job creation', 400));
+    }
+
+    // Check if a job already exists for this quote
+    if (quote.jobId) {
+      return next(new CustomError('A job already exists for this quote', 400));
     }
 
     const job = await createJobFromQuote(quote);

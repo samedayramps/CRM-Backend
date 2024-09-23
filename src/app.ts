@@ -14,7 +14,6 @@ import { errorHandler } from './middlewares/errorHandler';
 import dotenv from 'dotenv';
 import path from 'path';
 
-
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -50,7 +49,6 @@ app.use(express.json());
 // Handle OPTIONS requests
 app.options('*', cors());
 
-
 // Non-webhook routes
 app.use('/api/rental-requests', rentalRequestsRouter);
 app.use('/api/customers', customersRouter);
@@ -60,6 +58,7 @@ app.use('/api/calculate-pricing', calculatePricingRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/manual-signature', manualSignatureRouter);
 app.use('/api/jobs', jobsRouter);
+app.use('/api/quotes', quotesRouter);
 
 // Error handling middleware (should be last)
 app.use(errorHandler);

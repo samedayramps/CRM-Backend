@@ -2,6 +2,13 @@ import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { CustomError } from '../utils/CustomError';
 
+export class CalendarError extends CustomError {
+  constructor(message: string, statusCode: number = 500) {
+    super(message, statusCode);
+    this.name = 'CalendarError';
+  }
+}
+
 const oauth2Client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
@@ -46,7 +53,7 @@ export async function createCalendarEvent(params: CalendarEventParams) {
     return response.data;
   } catch (error) {
     console.error('Error creating calendar event:', error);
-    throw new CustomError('Failed to create calendar event', 500);
+    throw new CalendarError('Failed to create calendar event');
   }
 }
 
@@ -75,7 +82,7 @@ export async function updateCalendarEvent(eventId: string, params: CalendarEvent
     return response.data;
   } catch (error) {
     console.error('Error updating calendar event:', error);
-    throw new CustomError('Failed to update calendar event', 500);
+    throw new CalendarError('Failed to update calendar event');
   }
 }
 
@@ -87,6 +94,19 @@ export async function deleteCalendarEvent(eventId: string) {
     });
   } catch (error) {
     console.error('Error deleting calendar event:', error);
-    throw new CustomError('Failed to delete calendar event', 500);
+    throw new CalendarError('Failed to delete calendar event');
+  }
+}
+
+export async function getCalendarEvent(eventId: string) {
+  try {
+    const response = await calendar.events.get({
+      calendarId: 'primary',
+      eventId: eventId,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error getting calendar event:', error);
+    throw new CalendarError('Failed to get calendar event');
   }
 }
