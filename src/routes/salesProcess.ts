@@ -3,6 +3,7 @@
 import express from 'express';
 import { SalesProcess, SalesStage } from '../models/SalesProcess';
 import { CustomError } from '../utils/CustomError';
+import { createCustomerFromRentalRequest, createQuoteFromCustomer, createJobFromQuote } from '../services/salesService';
 
 const router = express.Router();
 
@@ -48,7 +49,17 @@ router.post('/', async (req, res, next) => {
     });
 
     await salesProcess.save();
-    res.status(201).json(salesProcess);
+
+    // Create customer from rental request
+    const customer = await createCustomerFromRentalRequest(salesProcess._id);
+
+    // Create quote from customer
+    const quote = await createQuoteFromCustomer(customer._id, {});
+
+    // Create job from quote
+    const job = await createJobFromQuote(quote._id);
+
+    res.status(201).json({ salesProcess, customer, quote, job });
   } catch (error: any) {
     console.error('Error creating sales process:', error);
     next(new CustomError(error.message, 500));
