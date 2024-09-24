@@ -3,64 +3,44 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
 export enum SalesStage {
-  RENTAL_REQUEST_RECEIVED = 'RENTAL_REQUEST_RECEIVED',
-  CUSTOMER_CREATED = 'CUSTOMER_CREATED',
-  QUOTE_DRAFT = 'QUOTE_DRAFT',
+  CUSTOMER_INFO = 'CUSTOMER_INFO',
+  RAMP_CONFIGURATION = 'RAMP_CONFIGURATION',
   QUOTE_SENT = 'QUOTE_SENT',
-  QUOTE_ACCEPTED = 'QUOTE_ACCEPTED',
-  PAYMENT_RECEIVED = 'PAYMENT_RECEIVED',
-  JOB_CREATED = 'JOB_CREATED',
-  JOB_SCHEDULED = 'JOB_SCHEDULED',
+  AGREEMENT_SENT = 'AGREEMENT_SENT',
+  INSTALL_SCHEDULED = 'INSTALL_SCHEDULED',
   JOB_COMPLETED = 'JOB_COMPLETED'
 }
 
 export interface ISalesProcess extends Document {
   stage: SalesStage;
-  customerInfo: {
+  customerInfo?: {
     firstName: string;
     lastName: string;
     email: string;
     phone: string;
     installAddress: string;
-    mobilityAids: string[];
+    _id?: Types.ObjectId; // Add _id to customerInfo
   };
-  rentalRequest: {
-    knowRampLength: boolean;
-    rampLength?: number;
-    knowRentalDuration: boolean;
-    rentalDuration?: number;
-    installTimeframe: string;
+  rampConfiguration?: {
+    height: number;
+    components: Array<{
+      type: 'ramp' | 'landing';
+      length: number;
+      quantity: number;
+    }>;
+    totalLength: number;
   };
-  quote?: {
-    rampConfiguration: {
-      components: Array<{
-        type: 'ramp' | 'landing';
-        length: number;
-        quantity: number;
-      }>;
-      totalLength: number;
-    };
-    pricingCalculations: {
-      deliveryFee: number;
-      installFee: number;
-      monthlyRentalRate: number;
-      totalUpfront: number;
-      distance: number;
-      warehouseAddress: string;
-    };
-    status: 'draft' | 'sent' | 'accepted' | 'paid';
-    paymentStatus: 'pending' | 'processing' | 'paid' | 'failed';
-    paymentIntentId?: string;
-    agreementStatus: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
-    agreementId?: string;
+  pricingCalculations?: {
+    deliveryFee: number;
+    installFee: number;
+    monthlyRentalRate: number;
+    totalUpfront: number;
+    distance: number;
+    warehouseAddress: string;
   };
-  job?: {
-    scheduledInstallationDate?: Date;
-    actualInstallationDate?: Date;
-    calendarEventId?: string;
-    status: 'scheduled' | 'completed' | 'cancelled';
-  };
-  notes?: string;
+  scheduledInstallationDate?: Date;
+  quoteId?: Types.ObjectId;
+  agreementId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,45 +53,30 @@ const salesProcessSchema = new Schema<ISalesProcess>({
     email: { type: String, required: true },
     phone: { type: String, required: true },
     installAddress: { type: String, required: true },
-    mobilityAids: { type: [String], required: true },
+    _id: { type: Schema.Types.ObjectId, required: false }, // Add _id to schema
   },
-  rentalRequest: {
-    knowRampLength: { type: Boolean, required: true },
-    rampLength: { type: Number },
-    knowRentalDuration: { type: Boolean, required: true },
-    rentalDuration: { type: Number },
-    installTimeframe: { type: String, required: true },
+  rampConfiguration: {
+    height: { type: Number, required: false },
+    components: [{
+      type: { type: String, enum: ['ramp', 'landing'], required: true },
+      length: { type: Number, required: true },
+      quantity: { type: Number, required: true }
+    }],
+    totalLength: { type: Number, required: true }
   },
-  quote: {
-    rampConfiguration: {
-      components: [{
-        type: { type: String, enum: ['ramp', 'landing'], required: true },
-        length: { type: Number, required: true },
-        quantity: { type: Number, required: true }
-      }],
-      totalLength: { type: Number, required: true }
-    },
-    pricingCalculations: {
-      deliveryFee: { type: Number },
-      installFee: { type: Number },
-      monthlyRentalRate: { type: Number },
-      totalUpfront: { type: Number },
-      distance: { type: Number },
-      warehouseAddress: { type: String }
-    },
-    status: { type: String, enum: ['draft', 'sent', 'accepted', 'paid'] },
-    paymentStatus: { type: String, enum: ['pending', 'processing', 'paid', 'failed'] },
-    paymentIntentId: { type: String },
-    agreementStatus: { type: String, enum: ['pending', 'sent', 'viewed', 'signed', 'declined'] },
-    agreementId: { type: String }
+  pricingCalculations: {
+    deliveryFee: { type: Number },
+    installFee: { type: Number },
+    monthlyRentalRate: { type: Number },
+    totalUpfront: { type: Number },
+    distance: { type: Number },
+    warehouseAddress: { type: String }
   },
-  job: {
-    scheduledInstallationDate: { type: Date },
-    actualInstallationDate: { type: Date },
-    calendarEventId: { type: String },
-    status: { type: String, enum: ['scheduled', 'completed', 'cancelled'] }
-  },
-  notes: { type: String },
+  scheduledInstallationDate: { type: Date },
+  quoteId: { type: Schema.Types.ObjectId, ref: 'Quote' },
+  agreementId: { type: String },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
 export const SalesProcess = model<ISalesProcess>('SalesProcess', salesProcessSchema);

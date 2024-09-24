@@ -38,6 +38,19 @@ export const createQuoteFromCustomer = async (customerId: Types.ObjectId, quoteD
     customerId: customer._id,
     customerName: `${customer.firstName} ${customer.lastName}`,
     salesStage: SalesStage.QUOTE_DRAFT,
+    rampConfiguration: {
+      components: [],
+      totalLength: 0, // Ensure this is set
+    },
+    pricingCalculations: {
+      deliveryFee: 0,
+      installFee: 0,
+      monthlyRentalRate: 0,
+      totalUpfront: 0,
+      distance: 0,
+      warehouseAddress: '',
+    },
+    installAddress: customer.installAddress,
   });
   await quote.save();
 
