@@ -68,7 +68,7 @@ app.use('/api/calculate-pricing', calculatePricingRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/manual-signature', manualSignatureRouter);
 app.use('/api/jobs', jobsRouter);
-app.use('/api/sales-process', salesProcessRouter); // Register the salesProcessRouter
+app.use('/api/sales-processes', salesProcessRouter); // Corrected path
 
 // Error handling middleware (should be last)
 app.use(errorHandler);

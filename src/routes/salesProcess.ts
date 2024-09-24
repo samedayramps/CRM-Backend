@@ -11,7 +11,7 @@ import { RampConfiguration } from '../models/Quote'; // Import RampConfiguration
 
 const router = express.Router();
 
-// Get all sales processes
+// Change this route to match the plural form used in app.ts
 router.get('/', async (req, res, next) => {
   try {
     const salesProcesses = await SalesProcess.find().sort({ createdAt: -1 });
