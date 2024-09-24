@@ -19,10 +19,10 @@ export interface IRentalRequest extends Document {
   };
   installAddress: string;
   status: string;
+  salesStage: SalesStage;
   customerId?: Types.ObjectId;
   quoteId?: Types.ObjectId;
   jobId?: Types.ObjectId;
-  salesStage: SalesStage;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,17 +44,10 @@ const rentalRequestSchema = new Schema<IRentalRequest>({
   },
   installAddress: { type: String, required: true },
   status: { type: String, required: true },
+  salesStage: { type: String, enum: Object.values(SalesStage), default: SalesStage.RENTAL_REQUEST },
   customerId: { type: Schema.Types.ObjectId, ref: 'Customer' },
   quoteId: { type: Schema.Types.ObjectId, ref: 'Quote' },
   jobId: { type: Schema.Types.ObjectId, ref: 'Job' },
-  salesStage: { type: String, enum: Object.values(SalesStage), default: SalesStage.RENTAL_REQUEST_RECEIVED },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-});
-
-rentalRequestSchema.pre('save', function(next) {
-  this.updatedAt = new Date();
-  next();
-});
+}, { timestamps: true });
 
 export const RentalRequest = model<IRentalRequest>('RentalRequest', rentalRequestSchema);

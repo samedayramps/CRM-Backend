@@ -1,50 +1,85 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { SalesStage } from '../types/SalesStage';
 
+export enum JobStage {
+  CUSTOMER_INFO = 'CUSTOMER_INFO',
+  RAMP_CONFIGURATION = 'RAMP_CONFIGURATION',
+  PRICING = 'PRICING',
+  QUOTE = 'QUOTE',
+  INSTALLATION_SCHEDULING = 'INSTALLATION_SCHEDULING',
+  COMPLETED = 'COMPLETED'
+}
+
 export interface IJob extends Document {
-  jobId: string;
-  quoteId: Types.ObjectId;
-  customerId: Types.ObjectId;
-  rentalRequestId?: Types.ObjectId;
-  salesStage: SalesStage;
-  installAddress: string;
+  stage: JobStage;
+  customerInfo: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    installAddress: string;
+    mobilityAids: string[];
+  };
   rampConfiguration: {
-    components: Array<{
+    sections: Array<{
       type: 'ramp' | 'landing';
       length: number;
-      quantity: number;
+      width?: number;
     }>;
     totalLength: number;
   };
-  scheduledInstallationDate: Date;
-  actualInstallationDate?: Date;
-  calendarEventId?: string;
-  status: 'scheduled' | 'completed' | 'cancelled';
+  pricing: {
+    deliveryFee: number;
+    installFee: number;
+    monthlyRate: number;
+    totalUpfront: number;
+  };
+  quoteStatus: 'draft' | 'sent' | 'accepted' | 'declined' | 'paid';
+  agreementId?: string;
+  agreementStatus?: 'sent' | 'viewed' | 'signed' | 'declined';
+  manualSignature?: string;
+  signatureDate?: Date;
+  paymentStatus: 'pending' | 'paid' | 'failed';
+  paymentIntentId?: string;
+  scheduledInstallation?: Date;
+  salesStage: SalesStage;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const jobSchema = new Schema<IJob>({
-  jobId: { type: String, required: true, unique: true },
-  quoteId: { type: Schema.Types.ObjectId, ref: 'Quote', required: true },
-  customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
-  rentalRequestId: { type: Schema.Types.ObjectId, ref: 'RentalRequest' },
-  salesStage: { type: String, enum: Object.values(SalesStage), default: SalesStage.JOB_CREATED },
-  installAddress: { type: String, required: true },
+  stage: { type: String, enum: Object.values(JobStage), required: true },
+  customerInfo: {
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    phone: { type: String, required: true },
+    email: { type: String, required: true },
+    installAddress: { type: String, required: true },
+    mobilityAids: [{ type: String }],
+  },
   rampConfiguration: {
-    components: [{
+    sections: [{
       type: { type: String, enum: ['ramp', 'landing'], required: true },
       length: { type: Number, required: true },
-      quantity: { type: Number, required: true }
+      width: { type: Number },
     }],
-    totalLength: { type: Number, required: true }
+    totalLength: { type: Number, required: true },
   },
-  scheduledInstallationDate: { type: Date, required: true },
-  actualInstallationDate: { type: Date },
-  calendarEventId: { type: String },
-  status: {
-    type: String,
-    enum: ['scheduled', 'completed', 'cancelled'],
-    default: 'scheduled',
+  pricing: {
+    deliveryFee: { type: Number, required: true },
+    installFee: { type: Number, required: true },
+    monthlyRate: { type: Number, required: true },
+    totalUpfront: { type: Number, required: true },
   },
+  quoteStatus: { type: String, enum: ['draft', 'sent', 'accepted', 'declined', 'paid'], required: true },
+  agreementId: { type: String },
+  agreementStatus: { type: String, enum: ['sent', 'viewed', 'signed', 'declined'] },
+  manualSignature: { type: String },
+  signatureDate: { type: Date },
+  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], required: true },
+  paymentIntentId: { type: String },
+  scheduledInstallation: { type: Date },
+  salesStage: { type: String, enum: Object.values(SalesStage), required: true },
 }, { timestamps: true });
 
 export const Job = model<IJob>('Job', jobSchema);

@@ -1,15 +1,14 @@
-import { IQuote } from '../models/Quote';
-import { ICustomer } from '../models/Customer';
+import { IJob } from '../models/Job';
 import { Types } from 'mongoose';
 import { generateAcceptanceToken } from '../utils/tokenUtils';
 
-export function generateQuoteEmailTemplate(quote: IQuote): string {
-  const customerName = getCustomerName(quote);
-  const acceptanceToken = quote._id ? generateAcceptanceToken(quote._id.toString()) : '';
-  const acceptanceUrl = `${process.env.BACKEND_URL}/api/quotes/${quote._id}/accept?token=${acceptanceToken}`;
+export function generateQuoteEmailTemplate(job: IJob): string {
+  const customerName = getCustomerName(job);
+  const acceptanceToken = job._id ? generateAcceptanceToken(job._id.toString()) : '';
+  const acceptanceUrl = `${process.env.BACKEND_URL}/api/jobs/${job._id}/accept?token=${acceptanceToken}`;
 
-  const componentListHtml = quote.rampConfiguration.components.map(component => `
-    <li style="margin-bottom: 5px;">${component.quantity} x ${component.length}-foot ${component.type}</li>
+  const componentListHtml = job.rampConfiguration.sections.map((section) => `
+    <li style="margin-bottom: 5px;">${section.length}-foot ${section.type}</li>
   `).join('');
 
   return `
@@ -30,7 +29,7 @@ export function generateQuoteEmailTemplate(quote: IQuote): string {
   <div style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
     <h3 style="color: #2c3e50; font-size: 18px; margin-bottom: 10px;">Your Ramp Configuration:</h3>
     <ul style="list-style-type: none; padding-left: 0; margin: 0;">
-      <li style="margin-bottom: 5px;">Total Length: ${quote.rampConfiguration.totalLength} feet</li>
+      <li style="margin-bottom: 5px;">Total Length: ${job.rampConfiguration.totalLength} feet</li>
       ${componentListHtml}
       <li style="margin-bottom: 5px;">Width: 3 feet with handrails on both sides</li>
       <li style="margin-bottom: 5px;">Material: 100% solid aluminum, supports up to 1000 pounds</li>
@@ -38,8 +37,8 @@ export function generateQuoteEmailTemplate(quote: IQuote): string {
   </div>
 
   <div style="background-color: #fafde5; border: 1px solid #ebfd2a; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
-    <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Total Upfront Cost: $${quote.pricingCalculations.totalUpfront.toFixed(2)}</p>
-    <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Monthly Rental: $${quote.pricingCalculations.monthlyRentalRate.toFixed(2)}</p>
+    <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Total Upfront Cost: $${job.pricing.totalUpfront.toFixed(2)}</p>
+    <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Monthly Rental: $${job.pricing.monthlyRate.toFixed(2)}</p>
     <p style="font-size: 14px; font-style: italic; margin-bottom: 15px;">Upfront cost includes delivery, installation, and future removal</p>
   </div>
 
@@ -92,14 +91,6 @@ export function generateQuoteEmailTemplate(quote: IQuote): string {
   `;
 }
 
-function getCustomerName(quote: IQuote): string {
-  if (quote.customerId) {
-    if (quote.customerId instanceof Types.ObjectId) {
-      return quote.customerName.split(' ')[0]; // Get first name
-    } else {
-      const customer = quote.customerId as ICustomer;
-      return customer.firstName;
-    }
-  }
-  return 'Valued Customer';
+function getCustomerName(job: IJob): string {
+  return job.customerInfo.firstName || 'Valued Customer';
 }

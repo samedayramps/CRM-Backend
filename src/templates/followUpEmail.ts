@@ -1,18 +1,6 @@
-import { IQuote } from '../models/Quote';
-import { ICustomer } from '../models/Customer';
-import { Types } from 'mongoose';
-import { Customer } from '../models/Customer';
-import { CustomError } from '../utils/CustomError';
+import { IJob } from '../models/Job';
 
-export async function generateFollowUpEmailTemplate(quote: IQuote, paymentLink: string, signatureLink: string): Promise<string> {
-  const customer = quote.customerId instanceof Types.ObjectId
-    ? await Customer.findById(quote.customerId)
-    : quote.customerId as ICustomer;
-
-  if (!customer) {
-    throw new CustomError('Customer not found', 404);
-  }
-
+export async function generateFollowUpEmailTemplate(job: IJob, paymentLink: string, signatureLink: string): Promise<string> {
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -24,7 +12,7 @@ export async function generateFollowUpEmailTemplate(quote: IQuote, paymentLink: 
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <h1 style="color: #2c3e50; font-size: 24px; margin-bottom: 20px;">Thank You for Accepting Your Quote</h1>
       
-      <p>Dear ${customer.firstName},</p>
+      <p>Dear ${job.customerInfo.firstName},</p>
       
       <p>Thank you for accepting your Same Day Ramps quote. To complete your order, please follow these steps:</p>
       
