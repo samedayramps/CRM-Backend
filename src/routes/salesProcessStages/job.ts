@@ -7,7 +7,7 @@ import { generateStripePaymentLink } from '../../services/stripeService';
 import { EsignatureService } from '../../services/EsignatureService';
 import { RampConfiguration } from '../../models/Quote';
 
-export const createStage3Route = () => {
+export const createJobRoute = () => {
   const router = express.Router();
 
   router.post('/:id', async (req, res, next) => {

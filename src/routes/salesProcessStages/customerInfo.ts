@@ -2,7 +2,7 @@ import express from 'express';
 import { SalesProcess, SalesStage } from '../../models/SalesProcess';
 import { CustomError } from '../../utils/CustomError';
 
-export const createStage1Route = () => {
+export const createCustomerInfoRoute = () => {
   const router = express.Router();
 
   router.post('/', async (req, res, next) => {
