@@ -13,6 +13,7 @@ import jobsRouter from './routes/jobs';
 import { errorHandler } from './middlewares/errorHandler';
 import dotenv from 'dotenv';
 import path from 'path';
+import salesProcessRouter from './routes/salesProcess';
 
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -68,6 +69,9 @@ app.use('/api/payments', paymentsRouter);
 app.use('/api/manual-signature', manualSignatureRouter);
 app.use('/api/jobs', jobsRouter);
 app.use('/api/quotes', quotesRouter);
+
+// Sales process route
+app.use('/api/sales-processes', salesProcessRouter);
 
 // Error handling middleware (should be last)
 app.use(errorHandler);
