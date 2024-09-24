@@ -37,7 +37,7 @@ export interface IQuote extends Document {
   paymentIntentId?: string;
   agreementStatus: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
   agreementId?: string;
-  status: 'draft' | 'sent' | 'accepted'; // Add this line
+  status: 'draft' | 'sent' | 'accepted' | 'paid'; // Add 'paid' here
 }
 
 const quoteSchema = new Schema<IQuote>({
@@ -78,7 +78,7 @@ const quoteSchema = new Schema<IQuote>({
   },
   agreementId: { type: String, required: false },
   jobId: { type: Schema.Types.ObjectId, ref: 'Job' },
-  status: { type: String, enum: ['draft', 'sent', 'accepted'], default: 'draft' }, // Add this line
+  status: { type: String, enum: ['draft', 'sent', 'accepted', 'paid'], default: 'draft' }, // Add 'paid' here
 }, { timestamps: true });
 
 // Enable virtuals in JSON output if needed
