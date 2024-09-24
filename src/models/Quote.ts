@@ -1,5 +1,6 @@
 // src/models/Quote.ts
 import { Schema, model, Document, Types } from 'mongoose';
+import { SalesStage } from '../types/SalesStage';
 
 interface RampComponent {
   type: 'ramp' | 'landing';
@@ -13,10 +14,9 @@ interface RampConfiguration {
 }
 
 export interface IQuote extends Document {
-  _id: Types.ObjectId; // Add this line
+  _id: Types.ObjectId;
   customerId: Types.ObjectId;
   customerName: string;
-  rentalRequestId?: Types.ObjectId;
   rampConfiguration: RampConfiguration;
   pricingCalculations: {
     deliveryFee: number;
@@ -26,7 +26,9 @@ export interface IQuote extends Document {
     distance: number;
     warehouseAddress: string;
   };
-  status: 'draft' | 'sent' | 'accepted' | 'paid' | 'completed';
+  salesStage: SalesStage;
+  rentalRequestId?: Types.ObjectId;
+  jobId?: Types.ObjectId;
   createdAt: Date;
   manualSignature?: string;
   signatureDate?: Date;
@@ -35,7 +37,7 @@ export interface IQuote extends Document {
   paymentIntentId?: string;
   agreementStatus: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
   agreementId?: string;
-  jobId?: Types.ObjectId; // Add this line
+  status: 'draft' | 'sent' | 'accepted'; // Add this line
 }
 
 const quoteSchema = new Schema<IQuote>({
@@ -58,11 +60,7 @@ const quoteSchema = new Schema<IQuote>({
     distance: { type: Number, required: true },
     warehouseAddress: { type: String, required: true }
   },
-  status: { 
-    type: String, 
-    enum: ['draft', 'sent', 'accepted', 'paid', 'completed'], 
-    default: 'draft' 
-  },
+  salesStage: { type: String, enum: Object.values(SalesStage), default: SalesStage.QUOTE_DRAFT },
   createdAt: { type: Date, default: Date.now },
   manualSignature: { type: String, required: false },
   signatureDate: { type: Date, required: false },
@@ -79,8 +77,9 @@ const quoteSchema = new Schema<IQuote>({
     default: 'pending' 
   },
   agreementId: { type: String, required: false },
-  jobId: { type: Schema.Types.ObjectId, ref: 'Job' } // Add this line
-});
+  jobId: { type: Schema.Types.ObjectId, ref: 'Job' },
+  status: { type: String, enum: ['draft', 'sent', 'accepted'], default: 'draft' }, // Add this line
+}, { timestamps: true });
 
 // Enable virtuals in JSON output if needed
 quoteSchema.set('toJSON', { virtuals: true });

@@ -6,6 +6,7 @@ import { body, validationResult } from 'express-validator';
 import { customerRules } from '../utils/validationRules';
 import { CustomError } from '../utils/CustomError';
 import { Types } from 'mongoose';
+import { createCustomerFromRentalRequest } from '../services/salesService';
 
 const router = express.Router();
 
@@ -96,25 +97,7 @@ router.put('/:id', customerRules, async (req: Request, res: Response, next: Next
 router.post('/from-rental-request/:rentalRequestId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { rentalRequestId } = req.params;
-    const rentalRequest = await RentalRequest.findById(rentalRequestId);
-
-    if (!rentalRequest) {
-      return res.status(404).json({ message: 'Rental request not found' });
-    }
-
-    const customerData = {
-      firstName: rentalRequest.customerInfo.firstName,
-      lastName: rentalRequest.customerInfo.lastName,
-      phone: rentalRequest.customerInfo.phone,
-      email: rentalRequest.customerInfo.email,
-      installAddress: rentalRequest.installAddress,
-      mobilityAids: rentalRequest.rampDetails.mobilityAids,
-      rentalRequestId: rentalRequest._id,
-    };
-
-    const customer = new Customer(customerData);
-    await customer.save();
-
+    const customer = await createCustomerFromRentalRequest(new Types.ObjectId(rentalRequestId));
     res.status(201).json(customer);
   } catch (error: any) {
     next(new CustomError(error.message, 500));

@@ -1,5 +1,6 @@
 // src/models/RentalRequest.ts
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
+import { SalesStage } from '../types/SalesStage';
 
 export interface IRentalRequest extends Document {
   customerInfo: {
@@ -17,7 +18,11 @@ export interface IRentalRequest extends Document {
     mobilityAids: string[];
   };
   installAddress: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: string;
+  customerId?: Types.ObjectId;
+  quoteId?: Types.ObjectId;
+  jobId?: Types.ObjectId;
+  salesStage: SalesStage;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,15 +39,15 @@ const rentalRequestSchema = new Schema<IRentalRequest>({
     rampLength: { type: Number },
     knowRentalDuration: { type: Boolean, required: true },
     rentalDuration: { type: Number },
-    installTimeframe: {
-      type: String,
-      enum: ['Within 24 hours', 'Within 2 days', 'Within 3 days', 'Within 1 week', 'Over 1 week'],
-      required: true,
-    },
+    installTimeframe: { type: String, required: true },
     mobilityAids: { type: [String], required: true },
   },
   installAddress: { type: String, required: true },
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  status: { type: String, required: true },
+  customerId: { type: Schema.Types.ObjectId, ref: 'Customer' },
+  quoteId: { type: Schema.Types.ObjectId, ref: 'Quote' },
+  jobId: { type: Schema.Types.ObjectId, ref: 'Job' },
+  salesStage: { type: String, enum: Object.values(SalesStage), default: SalesStage.RENTAL_REQUEST_RECEIVED },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

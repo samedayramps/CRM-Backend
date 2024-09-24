@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { Quote } from '../models/Quote';
-import { Customer, ICustomer } from '../models/Customer'; // Add this line
+import { Customer, ICustomer } from '../models/Customer';
 import { calculatePricing } from '../services/pricingService';
 import { validationResult } from 'express-validator';
 import { quoteRules } from '../utils/validationRules';
@@ -10,9 +10,10 @@ import { sendQuoteEmail, sendFollowUpEmail } from '../services/emailService';
 import { verifyAcceptanceToken } from '../utils/tokenUtils';
 import { generateStripePaymentLink } from '../services/stripeService';
 import { EsignatureService } from '../services/EsignatureService';
-import { IQuote } from '../models/Quote'; // Make sure to import IQuote
+import { IQuote } from '../models/Quote';
 import { Job } from '../models/Job';
-import { createJobFromQuote } from '../services/jobService'; // Add this line
+import { createJobFromQuote } from '../services/jobService';
+import { createQuoteFromCustomer } from '../services/salesService';
 
 const router = express.Router();
 
@@ -53,26 +54,11 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // Create a new quote
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { rampConfiguration, installAddress, warehouseAddress } = req.body;
-    console.log('Quote request body:', req.body); // Add this line for debugging
-
-    if (!installAddress || !warehouseAddress) {
-      throw new CustomError('Install address and warehouse address are required', 400);
-    }
-
-    const pricingCalculations = await calculatePricing(rampConfiguration, installAddress, warehouseAddress);
-
-    const quoteData = {
-      ...req.body,
-      pricingCalculations
-    };
-
-    const quote = new Quote(quoteData);
-    await quote.save();
+    const { customerId, ...quoteData } = req.body;
+    const quote = await createQuoteFromCustomer(new Types.ObjectId(customerId), quoteData);
     res.status(201).json(quote);
   } catch (error: any) {
-    console.error('Error creating quote:', error); // Add this line for debugging
-    next(new CustomError(error.message, error.statusCode || 500));
+    next(new CustomError(error.message, 500));
   }
 });
 

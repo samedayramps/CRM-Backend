@@ -6,6 +6,7 @@ import { Types } from 'mongoose';
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, CalendarError } from '../services/calendarService';
 import { createJobFromQuote, getJobById, updateJob, deleteJob } from '../services/jobService';
 import { Quote } from '../models/Quote';
+import { createJobFromQuote as createJobFromQuoteSalesService } from '../services/salesService';
 
 const router = express.Router();
 
@@ -67,17 +68,10 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/create-from-quote/:quoteId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { quoteId } = req.params;
-    if (!Types.ObjectId.isValid(quoteId)) {
-      throw new CustomError('Invalid quote ID', 400);
-    }
-    const quote = await Quote.findById(quoteId);
-    if (!quote) {
-      throw new CustomError('Quote not found', 404);
-    }
-    const job = await createJobFromQuote(quote);
+    const job = await createJobFromQuoteSalesService(new Types.ObjectId(quoteId));
     res.status(201).json(job);
   } catch (error: any) {
-    handleError(error, next);
+    next(new CustomError(error.message, 500));
   }
 });
 

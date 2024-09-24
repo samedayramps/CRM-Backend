@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose';
+import { SalesStage } from '../types/SalesStage';
 
 export interface ICustomer extends Document {
   firstName: string;
@@ -8,10 +9,12 @@ export interface ICustomer extends Document {
   installAddress: string;
   mobilityAids: string[];
   rentalRequestId?: Types.ObjectId;
-  notes?: string; // New field for additional customer information
-  // Removed: preferredContactMethod?: string; // New field for communication preference
+  quoteIds: Types.ObjectId[];
+  jobIds: Types.ObjectId[];
+  salesStage: SalesStage;
+  notes?: string;
   createdAt: Date;
-  updatedAt: Date; // Ensure this is included
+  updatedAt: Date;
 }
 
 const customerSchema = new Schema<ICustomer>({
@@ -21,12 +24,14 @@ const customerSchema = new Schema<ICustomer>({
   email: { type: String, required: true },
   installAddress: { type: String, required: true },
   mobilityAids: { type: [String], required: true },
-  rentalRequestId: { type: Schema.Types.ObjectId, ref: 'RentalRequest', required: false },
+  rentalRequestId: { type: Schema.Types.ObjectId, ref: 'RentalRequest' },
+  quoteIds: [{ type: Schema.Types.ObjectId, ref: 'Quote' }],
+  jobIds: [{ type: Schema.Types.ObjectId, ref: 'Job' }],
+  salesStage: { type: String, enum: Object.values(SalesStage), default: SalesStage.CUSTOMER_CREATED },
   notes: { type: String, required: false },
-  // Removed: preferredContactMethod: { type: String, enum: ['email', 'phone', 'text'], required: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
-});
+}, { timestamps: true });
 
 // Update the updatedAt field on each save
 customerSchema.pre('save', function(next) {
