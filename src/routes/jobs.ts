@@ -11,7 +11,6 @@ import { calculatePricing } from '../services/pricingService';
 import { EsignatureService } from '../services/EsignatureService';
 import Stripe from 'stripe';
 
-
 const router = express.Router();
 const esignatureService = new EsignatureService();
 
@@ -23,9 +22,11 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 // Job routes
 router.post('/from-rental-request/:rentalRequestId', async (req, res, next) => {
+  console.log(`Creating job from rental request: ${req.params.rentalRequestId}`);
   try {
     const rentalRequest = await RentalRequest.findById(req.params.rentalRequestId);
     if (!rentalRequest) {
+      console.log(`Rental request not found: ${req.params.rentalRequestId}`);
       return next(new CustomError('Rental request not found', 404));
     }
 
@@ -42,6 +43,7 @@ router.post('/from-rental-request/:rentalRequestId', async (req, res, next) => {
     });
 
     await job.save();
+    console.log(`Job created successfully: ${job._id}`);
     res.status(201).json(job);
   } catch (error: any) {
     console.error('Error creating job from rental request:', error);
@@ -49,69 +51,19 @@ router.post('/from-rental-request/:rentalRequestId', async (req, res, next) => {
   }
 });
 
-router.get('/', async (req, res, next) => {
-  try {
-    const jobs = await Job.find().sort({ createdAt: -1 });
-    res.json(jobs);
-  } catch (error: any) {
-    console.error('Error fetching jobs:', error);
-    next(new CustomError(error.message, 500));
-  }
-});
-
-router.get('/:id', async (req, res, next) => {
-  try {
-    const job = await Job.findById(req.params.id);
-    if (!job) {
-      return next(new CustomError('Job not found', 404));
-    }
-    res.json(job);
-  } catch (error: any) {
-    console.error('Error fetching job:', error);
-    next(new CustomError(error.message, 500));
-  }
-});
-
-router.put('/:id', async (req, res, next) => {
-  try {
-    const updatedJob = await Job.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!updatedJob) {
-      return next(new CustomError('Job not found', 404));
-    }
-    res.json(updatedJob);
-  } catch (error: any) {
-    console.error('Error updating job:', error);
-    next(new CustomError(error.message, 500));
-  }
-});
-
-router.delete('/:id', async (req, res, next) => {
-  try {
-    const deletedJob = await Job.findByIdAndDelete(req.params.id);
-    if (!deletedJob) {
-      return next(new CustomError('Job not found', 404));
-    }
-    res.status(204).send();
-  } catch (error: any) {
-    console.error('Error deleting job:', error);
-    next(new CustomError(error.message, 500));
-  }
-});
-
 // Calculate Pricing route
 router.post('/calculate-pricing', async (req: Request, res: Response, next: NextFunction) => {
+  console.log('Calculating pricing with input:', JSON.stringify(req.body));
   try {
     const { rampConfiguration, installAddress, warehouseAddress } = req.body;
 
     if (!installAddress || !warehouseAddress) {
+      console.log('Missing required fields for pricing calculation');
       throw new CustomError('Install address and warehouse address are required', 400);
     }
 
     const pricingCalculations = await calculatePricing(rampConfiguration, installAddress, warehouseAddress);
+    console.log('Pricing calculation result:', JSON.stringify(pricingCalculations));
 
     res.json(pricingCalculations);
   } catch (error: any) {
@@ -122,180 +74,40 @@ router.post('/calculate-pricing', async (req: Request, res: Response, next: Next
 
 // E-signature routes
 router.post('/esignatures/send', async (req: Request, res: Response, next: NextFunction) => {
+  console.log('Sending e-signature request:', JSON.stringify(req.body));
   try {
     const result = await esignatureService.sendEsignatureRequest(req.body);
+    console.log('E-signature request sent successfully:', JSON.stringify(result));
     res.json(result);
   } catch (error: any) {
+    console.error('Error sending e-signature request:', error);
     next(new CustomError(error.message, 500));
   }
 });
 
 router.get('/esignatures/status/:contractId', async (req: Request, res: Response, next: NextFunction) => {
+  console.log(`Checking e-signature status for contract: ${req.params.contractId}`);
   try {
     const { contractId } = req.params;
     const status = await esignatureService.checkEsignatureStatus(contractId);
+    console.log(`E-signature status for contract ${contractId}:`, JSON.stringify(status));
     res.json(status);
   } catch (error: any) {
+    console.error('Error checking e-signature status:', error);
     next(new CustomError(error.message, 500));
-  }
-});
-
-// E-signature webhook route
-router.post('/esignatures/webhook', express.json(), async (req, res, next) => {
-  try {
-    const { secret_token, status, data } = req.body;
-
-    if (!secret_token || secret_token !== process.env.ESIGNATURES_IO_TOKEN) {
-      return next(new CustomError('Invalid or missing token', 401));
-    }
-
-    if (!data || !data.contract || !data.contract.id) {
-      return next(new CustomError('Invalid event structure', 400));
-    }
-
-    let updateResult;
-
-    switch (status) {
-      case 'contract-sent':
-      case 'contract-viewed':
-      case 'contract-signed':
-      case 'contract-declined':
-        updateResult = await Job.findOneAndUpdate(
-          { agreementId: data.contract.id },
-          { agreementStatus: status.replace('contract-', '') },
-          { new: true }
-        );
-
-        if (!updateResult && data.contract.metadata) {
-          const metadata = JSON.parse(data.contract.metadata);
-          if (metadata.jobId) {
-            updateResult = await Job.findByIdAndUpdate(
-              metadata.jobId,
-              { 
-                agreementId: data.contract.id,
-                agreementStatus: status.replace('contract-', '')
-              },
-              { new: true }
-            );
-          }
-        }
-        break;
-      default:
-        console.log(`Unhandled event type: ${status}`);
-    }
-
-    res.sendStatus(200);
-  } catch (error: any) {
-    console.error('Error processing eSignatures webhook:', error);
-    next(new CustomError(error.message, 500));
-  }
-});
-
-// Pricing Variables routes
-router.get('/pricing-variables', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const variables = await PricingVariables.findOne().sort({ updatedAt: -1 });
-    if (!variables) {
-      return res.status(404).json({ message: 'Pricing variables not found. Please set initial values.' });
-    }
-    res.json(variables);
-  } catch (error: any) {
-    next(new CustomError(error.message, 500));
-  }
-});
-
-router.post('/pricing-variables', pricingVariablesRules, async (req: Request, res: Response, next: NextFunction) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return next(new CustomError('Validation failed', 400));
-  }
-
-  try {
-    const pricingVariables = new PricingVariables(req.body);
-    await pricingVariables.save();
-    res.status(201).json(pricingVariables);
-  } catch (error: any) {
-    next(new CustomError(error.message, 500));
-  }
-});
-
-router.put('/pricing-variables', pricingVariablesRules, async (req: Request, res: Response, next: NextFunction) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return next(new CustomError('Validation failed', 400));
-  }
-
-  try {
-    const variables = await PricingVariables.findOne().sort({ updatedAt: -1 });
-    if (!variables) {
-      return next(new CustomError('Pricing variables not found', 404));
-    }
-
-    const updatedVariables = await PricingVariables.findByIdAndUpdate(
-      variables._id,
-      { ...req.body, updatedAt: new Date() },
-      { new: true, runValidators: true }
-    );
-
-    res.json(updatedVariables);
-  } catch (error: any) {
-    next(new CustomError(error.message, 500));
-  }
-});
-
-// Manual Signature routes
-router.get('/manual-signature/:jobId', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { jobId } = req.params;
-    const job = await Job.findById(jobId);
-    if (!job) {
-      throw new CustomError('Job not found', 404);
-    }
-    
-    res.send(`
-      <h1>Manual Signature Required</h1>
-      <p>Please sign below to accept the job:</p>
-      <form action="/api/jobs/manual-signature/${jobId}" method="POST">
-        <input type="text" name="signature" placeholder="Type your full name" required>
-        <button type="submit">Sign and Accept</button>
-      </form>
-    `);
-  } catch (error: any) {
-    next(new CustomError(error.message, error.statusCode || 500));
-  }
-});
-
-router.post('/manual-signature/:jobId', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { jobId } = req.params;
-    const { signature } = req.body;
-    
-    const job = await Job.findById(jobId);
-    if (!job) {
-      throw new CustomError('Job not found', 404);
-    }
-    
-    const updatedJob: Partial<IJob> = {
-      manualSignature: signature,
-      signatureDate: new Date()
-    };
-    
-    await Job.findByIdAndUpdate(jobId, updatedJob);
-    
-    res.redirect(`${process.env.FRONTEND_URL}/job-accepted?id=${jobId}`);
-  } catch (error: any) {
-    next(new CustomError(error.message, error.statusCode || 500));
   }
 });
 
 // Stripe Webhook route
 router.post('/stripe-webhook', express.raw({type: 'application/json'}), async (req, res) => {
+  console.log('Received Stripe webhook');
   const sig = req.headers['stripe-signature'] as string;
 
   let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    console.log('Stripe event constructed:', event.type);
   } catch (err: any) {
     console.error('Webhook Error:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -304,12 +116,13 @@ router.post('/stripe-webhook', express.raw({type: 'application/json'}), async (r
   try {
     switch (event.type) {
       case 'payment_intent.succeeded':
+        console.log('Processing payment_intent.succeeded');
         await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
         break;
       case 'payment_intent.payment_failed':
+        console.log('Processing payment_intent.payment_failed');
         await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
         break;
-      // Add other cases as needed
       default:
         console.log(`Unhandled event type ${event.type}`);
     }
@@ -318,23 +131,29 @@ router.post('/stripe-webhook', express.raw({type: 'application/json'}), async (r
     return res.status(500).send('Error processing webhook');
   }
 
+  console.log('Webhook processed successfully');
   res.json({ received: true });
 });
 
 // Rental Requests routes
 router.get('/rental-requests', async (req: Request, res: Response, next: NextFunction) => {
+  console.log('Fetching all rental requests');
   try {
     const rentalRequests = await RentalRequest.find().sort({ createdAt: -1 });
+    console.log(`Found ${rentalRequests.length} rental requests`);
     res.json(rentalRequests);
   } catch (error: any) {
+    console.error('Error fetching rental requests:', error);
     next(new CustomError(error.message, 500));
   }
 });
 
 router.post('/rental-requests', rentalRequestRules, async (req: Request, res: Response, next: NextFunction) => {
+  console.log('Creating new rental request:', JSON.stringify(req.body));
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
@@ -348,6 +167,7 @@ router.post('/rental-requests', rentalRequestRules, async (req: Request, res: Re
     });
 
     await rentalRequest.save();
+    console.log('Rental request created successfully:', rentalRequest._id);
 
     // Send email notification
     sendRentalRequestNotification(rentalRequest).catch((error: any) => {
@@ -362,13 +182,14 @@ router.post('/rental-requests', rentalRequestRules, async (req: Request, res: Re
 
     res.status(201).json(rentalRequest);
   } catch (error: any) {
+    console.error('Error creating rental request:', error);
     next(new CustomError(error.message, 500));
   }
 });
 
 // Helper functions for Stripe webhook handling
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
-  console.log('PaymentIntent was successful!', paymentIntent.id);
+  console.log('Processing successful payment intent:', paymentIntent.id);
   
   let job = await Job.findOne({ paymentIntentId: paymentIntent.id });
   
@@ -390,11 +211,23 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 }
 
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
-  console.log('PaymentIntent failed!', paymentIntent.id);
-  await Job.findOneAndUpdate(
-    { paymentIntentId: paymentIntent.id },
-    { paymentStatus: 'failed' }
-  );
+  console.log('Processing failed payment intent:', paymentIntent.id);
+  
+  let job = await Job.findOne({ paymentIntentId: paymentIntent.id });
+  
+  if (!job && paymentIntent.metadata && paymentIntent.metadata.jobId) {
+    job = await Job.findById(paymentIntent.metadata.jobId);
+  }
+  
+  if (!job) {
+    console.error('Job not found for paymentIntentId:', paymentIntent.id);
+    return;
+  }
+  
+  job.paymentStatus = 'failed';
+  await job.save();
+  
+  console.log('Job updated with failed payment status:', job._id);
 }
 
 export default router;
