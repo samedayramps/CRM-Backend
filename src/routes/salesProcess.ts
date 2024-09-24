@@ -3,9 +3,9 @@
 import express from 'express';
 import { SalesProcess, SalesStage } from '../models/SalesProcess';
 import { CustomError } from '../utils/CustomError';
-import { createStage1Route } from './salesProcessStages/stage1';
-import { createStage2Route } from './salesProcessStages/stage2';
-import { createStage3Route } from './salesProcessStages/stage3';
+import { createStage1Route } from './salesProcessStages/customerInfo';
+import { createStage2Route } from './salesProcessStages/rampConfiguration';
+import { createStage3Route } from './salesProcessStages/job';
 
 const router = express.Router();
 

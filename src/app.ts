@@ -1,15 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import rentalRequestsRouter from './routes/rentalRequests';
-import customersRouter from './routes/customers';
-import quotesRouter from './routes/quotes';
 import pricingVariablesRouter from './routes/pricingVariables';
 import calculatePricingRouter from './routes/calculatePricing';
 import paymentsRouter from './routes/payments';
 import stripeWebhooksRouter from './routes/stripeWebhooks';
 import esignatureWebhooksRouter from './routes/esignatureWebhooks';
 import manualSignatureRouter from './routes/manualSignature';
-import jobsRouter from './routes/jobs';
 import salesProcessRouter from './routes/salesProcess'; // Import the salesProcessRouter
 import { errorHandler } from './middlewares/errorHandler';
 import dotenv from 'dotenv';
@@ -61,13 +58,10 @@ app.options('*', cors());
 
 // Non-webhook routes
 app.use('/api/rental-requests', rentalRequestsRouter);
-app.use('/api/customers', customersRouter);
-app.use('/api/quotes', quotesRouter);
 app.use('/api/pricing-variables', pricingVariablesRouter);
 app.use('/api/calculate-pricing', calculatePricingRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/manual-signature', manualSignatureRouter);
-app.use('/api/jobs', jobsRouter);
 app.use('/api/sales-processes', salesProcessRouter); // Corrected path
 
 // Error handling middleware (should be last)
