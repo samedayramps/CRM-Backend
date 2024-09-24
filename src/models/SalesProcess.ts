@@ -31,7 +31,7 @@ export interface ISalesProcess extends Document {
     rentalDuration?: number;
     installTimeframe: string;
   };
-  quote: {
+  quote?: {
     rampConfiguration: {
       components: Array<{
         type: 'ramp' | 'landing';
@@ -54,7 +54,7 @@ export interface ISalesProcess extends Document {
     agreementStatus: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
     agreementId?: string;
   };
-  job: {
+  job?: {
     scheduledInstallationDate?: Date;
     actualInstallationDate?: Date;
     calendarEventId?: string;
