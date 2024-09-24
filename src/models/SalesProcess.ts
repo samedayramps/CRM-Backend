@@ -19,16 +19,16 @@ export interface ISalesProcess extends Document {
     email: string;
     phone: string;
     installAddress: string;
-    _id?: Types.ObjectId; // Add _id to customerInfo
+    _id?: Types.ObjectId;
   };
   rampConfiguration?: {
-    height: number;
-    components: Array<{
+    height?: number;
+    components?: Array<{
       type: 'ramp' | 'landing';
       length: number;
       quantity: number;
     }>;
-    totalLength: number;
+    totalLength?: number;
   };
   pricingCalculations?: {
     deliveryFee: number;
@@ -53,7 +53,7 @@ const salesProcessSchema = new Schema<ISalesProcess>({
     email: { type: String, required: true },
     phone: { type: String, required: true },
     installAddress: { type: String, required: true },
-    _id: { type: Schema.Types.ObjectId, required: false }, // Add _id to schema
+    _id: { type: Schema.Types.ObjectId, required: false },
   },
   rampConfiguration: {
     height: { type: Number, required: false },
@@ -62,7 +62,7 @@ const salesProcessSchema = new Schema<ISalesProcess>({
       length: { type: Number, required: true },
       quantity: { type: Number, required: true }
     }],
-    totalLength: { type: Number, required: true }
+    totalLength: { type: Number, required: false }
   },
   pricingCalculations: {
     deliveryFee: { type: Number },

@@ -1,12 +1,13 @@
 // src/routes/salesProcess.ts
 
 import express from 'express';
-import { SalesProcess, SalesStage } from '../models/SalesProcess';
+import { SalesProcess, SalesStage, ISalesProcess } from '../models/SalesProcess';
 import { CustomError } from '../utils/CustomError';
 import { createQuoteFromCustomer, createJobFromQuote } from '../services/salesService';
 import { sendQuoteEmail, sendFollowUpEmail } from '../services/emailService';
 import { generateStripePaymentLink } from '../services/stripeService';
 import { EsignatureService } from '../services/EsignatureService';
+import { RampConfiguration } from '../models/Quote'; // Import RampConfiguration type
 
 const router = express.Router();
 
@@ -40,7 +41,6 @@ router.post('/stage1', async (req, res, next) => {
   try {
     const { firstName, lastName, email, phone, installAddress } = req.body;
 
-    // Validate required fields
     if (!firstName || !lastName || !email || !phone || !installAddress) {
       throw new CustomError('Missing required fields', 400);
     }
@@ -59,11 +59,10 @@ router.post('/stage1', async (req, res, next) => {
 });
 
 // Update sales process (Stage 2 - Ramp Configuration and Pricing)
-router.put('/stage2/:id', async (req, res, next) => {
+router.post('/stage2/:id', async (req, res, next) => {
   try {
     const { height, components, totalLength, pricingCalculations, scheduledInstallationDate } = req.body;
 
-    // Validate required fields
     if (!components || !totalLength || !pricingCalculations || !scheduledInstallationDate) {
       throw new CustomError('Missing required fields', 400);
     }
@@ -73,8 +72,14 @@ router.put('/stage2/:id', async (req, res, next) => {
       return next(new CustomError('Sales process not found', 404));
     }
 
+    const rampConfiguration: RampConfiguration = {
+      height,
+      components,
+      totalLength,
+    };
+
     salesProcess.stage = SalesStage.RAMP_CONFIGURATION;
-    salesProcess.rampConfiguration = { height, components, totalLength };
+    salesProcess.rampConfiguration = rampConfiguration;
     salesProcess.pricingCalculations = pricingCalculations;
     salesProcess.scheduledInstallationDate = scheduledInstallationDate;
 
@@ -87,7 +92,7 @@ router.put('/stage2/:id', async (req, res, next) => {
 });
 
 // Update sales process (Stage 3 - Send Quote and Agreement)
-router.put('/stage3/:id', async (req, res, next) => {
+router.post('/stage3/:id', async (req, res, next) => {
   try {
     const salesProcess = await SalesProcess.findById(req.params.id);
     if (!salesProcess) {
@@ -98,9 +103,13 @@ router.put('/stage3/:id', async (req, res, next) => {
       throw new CustomError('Customer information is missing', 400);
     }
 
+    if (!salesProcess.rampConfiguration || !salesProcess.pricingCalculations) {
+      throw new CustomError('Ramp configuration or pricing calculations are missing', 400);
+    }
+
     // Create quote from customer
     const quote = await createQuoteFromCustomer(salesProcess.customerInfo._id!, {
-      rampConfiguration: salesProcess.rampConfiguration,
+      rampConfiguration: salesProcess.rampConfiguration as RampConfiguration,
       pricingCalculations: salesProcess.pricingCalculations,
       installAddress: salesProcess.customerInfo.installAddress,
     });

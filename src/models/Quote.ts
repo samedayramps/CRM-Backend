@@ -2,13 +2,14 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { SalesStage } from '../types/SalesStage';
 
-interface RampComponent {
+export interface RampComponent {
   type: 'ramp' | 'landing';
   length: number;
   quantity: number;
 }
 
-interface RampConfiguration {
+export interface RampConfiguration {
+  height?: number;
   components: RampComponent[];
   totalLength: number;
 }
