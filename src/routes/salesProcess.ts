@@ -16,6 +16,7 @@ router.get('/', async (req, res, next) => {
     const salesProcesses = await SalesProcess.find().sort({ createdAt: -1 });
     res.json(salesProcesses);
   } catch (error: any) {
+    console.error('Error fetching sales processes:', error);
     next(new CustomError(error.message, 500));
   }
 });
@@ -29,6 +30,7 @@ router.get('/:id', async (req, res, next) => {
     }
     res.json(salesProcess);
   } catch (error: any) {
+    console.error('Error fetching sales process:', error);
     next(new CustomError(error.message, 500));
   }
 });
@@ -51,6 +53,7 @@ router.post('/stage1', async (req, res, next) => {
     await salesProcess.save();
     res.status(201).json(salesProcess);
   } catch (error: any) {
+    console.error('Error creating sales process:', error);
     next(new CustomError(error.message, 500));
   }
 });
@@ -78,6 +81,7 @@ router.put('/stage2/:id', async (req, res, next) => {
     await salesProcess.save();
     res.json(salesProcess);
   } catch (error: any) {
+    console.error('Error updating sales process:', error);
     next(new CustomError(error.message, 500));
   }
 });
@@ -141,6 +145,7 @@ router.put('/stage3/:id', async (req, res, next) => {
     await salesProcess.save();
     res.json(salesProcess);
   } catch (error: any) {
+    console.error('Error updating sales process:', error);
     next(new CustomError(error.message, 500));
   }
 });
@@ -158,6 +163,7 @@ router.put('/:id', async (req, res, next) => {
     }
     res.json(updatedSalesProcess);
   } catch (error: any) {
+    console.error('Error updating sales process:', error);
     next(new CustomError(error.message, 500));
   }
 });
@@ -171,6 +177,7 @@ router.delete('/:id', async (req, res, next) => {
     }
     res.status(204).send();
   } catch (error: any) {
+    console.error('Error deleting sales process:', error);
     next(new CustomError(error.message, 500));
   }
 });
