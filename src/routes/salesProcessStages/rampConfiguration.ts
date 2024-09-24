@@ -3,7 +3,7 @@ import { SalesProcess, SalesStage } from '../../models/SalesProcess';
 import { CustomError } from '../../utils/CustomError';
 import { RampConfiguration } from '../../models/Quote';
 
-export const createStage2Route = () => {
+export const createRampConfigurationRoute = () => {
   const router = express.Router();
 
   router.post('/:id', async (req, res, next) => {

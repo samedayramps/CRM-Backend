@@ -3,9 +3,9 @@
 import express from 'express';
 import { SalesProcess, SalesStage } from '../models/SalesProcess';
 import { CustomError } from '../utils/CustomError';
-import { createStage1Route } from './salesProcessStages/customerInfo';
-import { createStage2Route } from './salesProcessStages/rampConfiguration';
-import { createStage3Route } from './salesProcessStages/job';
+import { createCustomerInfoRoute } from './salesProcessStages/customerInfo';
+import { createRampConfigurationRoute } from './salesProcessStages/rampConfiguration';
+import { createJobRoute } from './salesProcessStages/job';
 
 const router = express.Router();
 
@@ -35,9 +35,9 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Stage-specific routes
-router.use('/stage1', createStage1Route());
-router.use('/stage2', createStage2Route());
-router.use('/stage3', createStage3Route());
+router.use('/customerInfo', createCustomerInfoRoute());
+router.use('/rampConfiguration', createRampConfigurationRoute());
+router.use('/job', createJobRoute());
 
 // Update a sales process
 router.put('/:id', async (req, res, next) => {
